@@ -1,0 +1,312 @@
+{
+  "name": "OneStopGadai - Notifikasi WAHA (Localhost)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "gadai-notif-wa",
+        "authentication": "headerAuth",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "a1111111-1111-4111-8111-111111111101",
+      "name": "Webhook Gadai Notif WA",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [220, 260],
+      "webhookId": "gadai-notif-wa"
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "=http://localhost:3001/api/contacts/check-exists?session=default&phone={{ $json.body.nomorHp }}",
+        "options": {}
+      },
+      "id": "a1111111-1111-4111-8111-111111111102",
+      "name": "Cek Nomor WA (WAHA)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [460, 260],
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "cond-number-exists",
+              "leftValue": "={{ $json.numberExists }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "a1111111-1111-4111-8111-111111111103",
+      "name": "Nomor Terdaftar di WA?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [700, 200]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://localhost:3001/api/sendText",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"session\": \"default\",\n  \"chatId\": \"{{ $('Webhook Gadai Notif WA').item.json.body.nomorHp }}@c.us\",\n  \"text\": {{ JSON.stringify($('Webhook Gadai Notif WA').item.json.body.pesan) }}\n}",
+        "options": {}
+      },
+      "id": "a1111111-1111-4111-8111-111111111104",
+      "name": "Kirim WA via WAHA",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [940, 140],
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"sent\": true,\n  \"sbr\": \"{{ $('Webhook Gadai Notif WA').item.json.body.sbr }}\"\n}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "id": "a1111111-1111-4111-8111-111111111105",
+      "name": "Respond Sukses",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [1180, 80]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"sent\": false,\n  \"reason\": \"Nomor tidak terdaftar di WhatsApp atau gagal kirim via WAHA\"\n}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "id": "a1111111-1111-4111-8111-111111111106",
+      "name": "Respond Gagal",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [1180, 320]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 8 * * *"
+            }
+          ]
+        }
+      },
+      "id": "b2222222-2222-4222-8222-222222222201",
+      "name": "Cron 08:00 Harian",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [220, 580]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "http://localhost:3000/api/wa/due-reminders",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-webhook-secret",
+              "value": "bprs-gadai-2026-rahasia"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "b2222222-2222-4222-8222-222222222202",
+      "name": "Ambil Jatuh Tempo H-3 & H-0",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [460, 580]
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "items",
+        "options": {}
+      },
+      "id": "b2222222-2222-4222-8222-222222222203",
+      "name": "Split Daftar Nasabah",
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [700, 580]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://localhost:3001/api/sendText",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"session\": \"default\",\n  \"chatId\": \"{{ $json.nomorHp }}@c.us\",\n  \"text\": {{ JSON.stringify($json.pesan) }}\n}",
+        "options": {}
+      },
+      "id": "b2222222-2222-4222-8222-222222222204",
+      "name": "Kirim WA Pengingat (WAHA)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [940, 580],
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://localhost:3000/api/wa/status",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-webhook-secret",
+              "value": "bprs-gadai-2026-rahasia"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"sbr\": \"{{ $('Split Daftar Nasabah').item.json.sbr }}\",\n  \"nomorHp\": \"{{ $('Split Daftar Nasabah').item.json.nomorHp }}\",\n  \"status\": \"failed\",\n  \"reason\": \"Gagal mengirim pengingat jatuh tempo via WAHA\"\n}",
+        "options": {}
+      },
+      "id": "b2222222-2222-4222-8222-222222222205",
+      "name": "Lapor Gagal ke Web",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1180, 640]
+    }
+  ],
+  "connections": {
+    "Webhook Gadai Notif WA": {
+      "main": [
+        [
+          {
+            "node": "Cek Nomor WA (WAHA)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Cek Nomor WA (WAHA)": {
+      "main": [
+        [
+          {
+            "node": "Nomor Terdaftar di WA?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond Gagal",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Nomor Terdaftar di WA?": {
+      "main": [
+        [
+          {
+            "node": "Kirim WA via WAHA",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond Gagal",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Kirim WA via WAHA": {
+      "main": [
+        [
+          {
+            "node": "Respond Sukses",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond Gagal",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Cron 08:00 Harian": {
+      "main": [
+        [
+          {
+            "node": "Ambil Jatuh Tempo H-3 & H-0",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ambil Jatuh Tempo H-3 & H-0": {
+      "main": [
+        [
+          {
+            "node": "Split Daftar Nasabah",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Daftar Nasabah": {
+      "main": [
+        [
+          {
+            "node": "Kirim WA Pengingat (WAHA)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Kirim WA Pengingat (WAHA)": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Lapor Gagal ke Web",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

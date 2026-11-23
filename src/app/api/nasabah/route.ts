@@ -1,0 +1,154 @@
+import { NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
+
+export async function GET(request: Request) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const q = searchParams.get("q") || "";
+
+    const nasabahs = await prisma.nasabah.findMany({
+      where: q
+        ? {
+            OR: [
+              { nama: { contains: q } },
+              { nik: { contains: q } },
+              { cif: { contains: q } },
+            ],
+          }
+        : undefined,
+      include: {
+        transaksi: {
+          select: {
+            sbr: true,
+            status: true,
+            marhunBih: true,
+            totalTaksiran: true,
+            tanggalAkad: true,
+          },
+        },
+      },
+      orderBy: { createdAt: "desc" },
+    });
+
+    return NextResponse.json({ success: true, data: nasabahs });
+  } catch (error) {
+    console.error("Gagal mengambil nasabah:", error);
+    return NextResponse.json(
+      { success: false, error: "Gagal mengambil data nasabah" },
+      { status: 500 }
+    );
+  }
+}
+
+export async function POST(request: Request) {
+  try {
+    const body = await request.json();
+    const { nama, nik, hp, alamat, noRek, pekerjaan } = body;
+
+    if (!nama || !nik || !hp || !alamat) {
+      return NextResponse.json(
+        { success: false, error: "Nama, No. KTP (NIK), No. HP, dan Alamat wajib diisi." },
+        { status: 400 }
+      );
+    }
+
+    // Cek apakah NIK sudah terdaftar
+    const existing = await prisma.nasabah.findUnique({
+      where: { nik },
+    });
+
+    if (existing) {
+      return NextResponse.json(
+        { success: false, error: `NIK ${nik} sudah terdaftar atas nama ${existing.nama} (${existing.cif}).` },
+        { status: 400 }
+      );
+    }
+
+    // Generate No. CIF resmi 8 Digit (contoh: 01010388)
+    const count = await prisma.nasabah.count();
+    const nextSeq = String(count + 393).padStart(4, "0");
+    const newCif = `0101${nextSeq}`;
+    // Generate No. Kontrak permanen 10 Digit CBS (contoh: 4420101123)
+    const newNoKontrak = `4420101${String(count + 128).padStart(3, "0")}`;
+
+    const created = await prisma.$transaction(async (db) => {
+      const newNasabah = await db.nasabah.create({
+        data: {
+          cif: newCif,
+          nik,
+          nama,
+          hp,
+          alamat,
+          noRek: noRek || null,
+          noKontrak: newNoKontrak,
+          pekerjaan: pekerjaan || null,
+        },
+      });
+
+      await db.auditLog.create({
+        data: {
+          user: body.user || "Petugas Loket",
+          role: "PENAKSIR",
+          action: "Tambah Nasabah CIF",
+          notes: `Pendaftaran nasabah baru ${nama} (CIF: ${newCif}, No. Kontrak: ${newNoKontrak}).`,
+        },
+      });
+
+      return newNasabah;
+    });
+
+    return NextResponse.json({ success: true, data: created });
+  } catch (error) {
+    console.error("Gagal simpan nasabah:", error);
+    return NextResponse.json(
+      { success: false, error: "Terjadi kesalahan saat menyimpan nasabah." },
+      { status: 500 }
+    );
+  }
+}
+
+export async function PUT(request: Request) {
+  try {
+    const body = await request.json();
+    const { cif, nama, hp, alamat, noRek, pekerjaan } = body;
+
+    if (!cif) {
+      return NextResponse.json(
+        { success: false, error: "No. CIF wajib disertakan untuk pembaruan." },
+        { status: 400 }
+      );
+    }
+
+    const updated = await prisma.$transaction(async (db) => {
+      const updatedNasabah = await db.nasabah.update({
+        where: { cif },
+        data: {
+          nama,
+          hp,
+          alamat,
+          noRek: noRek || null,
+          pekerjaan: pekerjaan || null,
+        },
+      });
+
+      await db.auditLog.create({
+        data: {
+          user: body.user || "Petugas Loket",
+          role: "PENAKSIR",
+          action: "Perbarui Data Nasabah",
+          notes: `Pembaruan data profil nasabah ${updatedNasabah.nama} (CIF: ${cif}).`,
+        },
+      });
+
+      return updatedNasabah;
+    });
+
+    return NextResponse.json({ success: true, data: updated });
+  } catch (error) {
+    console.error("Gagal update nasabah:", error);
+    return NextResponse.json(
+      { success: false, error: "Gagal memperbarui data nasabah." },
+      { status: 500 }
+    );
+  }
+}
