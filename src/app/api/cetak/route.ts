@@ -35,15 +35,6 @@ export async function POST(request: Request) {
     }
 
     const isReprint = tx.status === "Tercetak";
-    if (isReprint && role !== "BACK_OFFICE" && role !== "ADMIN_IT") {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Cetak ulang dokumen hanya diizinkan untuk Back Office atau Admin IT.",
-        },
-        { status: 403 }
-      );
-    }
 
     const updated = await prisma.$transaction(async (db) => {
       const nextTx = isReprint

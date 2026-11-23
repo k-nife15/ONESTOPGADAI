@@ -264,13 +264,17 @@ export function MonitoringClient({ initialTransaksi }: { initialTransaksi: Monit
   };
 
   const filtered = transaksiList.filter((t) => {
+    const matchPenaksirScope =
+      user?.role === "PENAKSIR"
+        ? t.kantor === user.branch && t.petugasPenaksir === user.name
+        : true;
     const matchStatus = filterStatus === "ALL" || t.status === filterStatus;
     const matchSearch =
       searchQuery === "" ||
       t.nama.toLowerCase().includes(searchQuery.toLowerCase()) ||
       t.sbr.toLowerCase().includes(searchQuery.toLowerCase()) ||
       (t.cif && t.cif.toLowerCase().includes(searchQuery.toLowerCase()));
-    return matchStatus && matchSearch;
+    return matchPenaksirScope && matchStatus && matchSearch;
   });
 
   return (

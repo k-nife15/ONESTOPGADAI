@@ -14,6 +14,7 @@ import {
   KeyRound,
   Pencil,
   Coins,
+  Trash2,
 } from "lucide-react";
 
 interface UserItem {
@@ -52,6 +53,7 @@ export function UsersClient({
   const [editBranch, setEditBranch] = useState("");
   const [stleInput, setStleInput] = useState<number>(initialStle);
   const [savingStle, setSavingStle] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<UserItem | null>(null);
 
   const toggleStatus = async (target: UserItem) => {
     if (target.active && target.username === currentUser?.username) {
@@ -225,8 +227,93 @@ export function UsersClient({
     }
   };
 
+  const handleDeleteUser = async () => {
+    if (!deleteTarget) return;
+    if (deleteTarget.username === currentUser?.username) {
+      setFeedback({ type: "error", msg: "Anda tidak dapat menghapus akun yang sedang Anda gunakan." });
+      setDeleteTarget(null);
+      return;
+    }
+
+    setSavingId(deleteTarget.id);
+    setFeedback(null);
+    try {
+      const res = await fetch("/api/users", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: deleteTarget.id,
+          actor: currentUser?.name || "Admin IT",
+          actorUsername: currentUser?.username,
+        }),
+      });
+      const data = await res.json();
+      if (!data.success) {
+        setFeedback({ type: "error", msg: data.error || "Gagal menghapus akun petugas." });
+        return;
+      }
+      setUsers((prev) => prev.filter((u) => u.id !== deleteTarget.id));
+      setFeedback({
+        type: "success",
+        msg: data.message || `Akun ${deleteTarget.name} berhasil dihapus.`,
+      });
+      setDeleteTarget(null);
+    } catch {
+      setFeedback({ type: "error", msg: "Terjadi kesalahan jaringan." });
+    } finally {
+      setSavingId(null);
+    }
+  };
+
   return (
     <AppShell>
+      {deleteTarget && (
+        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="w-full max-w-md bg-white rounded-2xl p-6 shadow-2xl border border-[#E1E5E2]">
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex items-start gap-3">
+                <div className="w-10 h-10 rounded-xl bg-[#FDECEA] text-[#C62828] flex items-center justify-center shrink-0">
+                  <Trash2 className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-extrabold text-[#1B2420]">
+                    Hapus Akun Petugas
+                  </h3>
+                  <p className="text-xs text-[#5F6B65] mt-1 leading-relaxed">
+                    Akun <b className="text-[#1B2420]">{deleteTarget.name}</b> (
+                    <span className="font-mono">@{deleteTarget.username}</span>) akan dihapus permanen dari sistem RBAC.
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setDeleteTarget(null)}
+                className="text-[#5F6B65] hover:text-[#1B2420] cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setDeleteTarget(null)}
+                className="h-9 px-4 rounded-lg border border-[#E1E5E2] text-xs font-bold text-[#5F6B65] hover:bg-[#F6F7F5] cursor-pointer"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                disabled={savingId === deleteTarget.id}
+                onClick={handleDeleteUser}
+                className="h-9 px-4 rounded-lg bg-[#C62828] hover:bg-[#A61E1E] text-white text-xs font-bold cursor-pointer disabled:opacity-50"
+              >
+                {savingId === deleteTarget.id ? "Menghapus..." : "Ya, Hapus Akun"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {editTarget && (
         <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="w-full max-w-md bg-white rounded-2xl p-6 shadow-2xl border border-[#E1E5E2]">
@@ -379,9 +466,12 @@ export function UsersClient({
                   required
                   value={newUsername}
                   onChange={(e) => setNewUsername(e.target.value)}
-                  placeholder="contoh: budi.penaksir"
+                  placeholder="contoh: pnk.budi / pmt.arifin / bof.rina / adm.slamet"
                   className="w-full h-9 px-3 rounded-lg border border-[#E1E5E2] font-mono focus:outline-none focus:border-[#0B5D3B]"
                 />
+                <p className="text-[10px] text-[#5F6B65] mt-1">
+                  Gunakan kode awalan unik per role: <b>pnk.</b> (Penaksir), <b>pmt.</b> (Pemutus), <b>bof.</b> (Back Office), <b>adm.</b> (Admin IT).
+                </p>
               </div>
               <div>
                 <label className="block font-bold text-[#1B2420] mb-1">Peran (Role) *</label>
@@ -598,6 +688,19 @@ export function UsersClient({
                   className="px-2.5 py-1 rounded-lg text-[11px] font-bold border border-[#E1E5E2] text-[#5F6B65] hover:text-[#084530] hover:bg-[#F6F7F5] inline-flex items-center gap-1 cursor-pointer"
                 >
                   <KeyRound className="w-3 h-3" /> Reset Sandi
+                </button>
+                <button
+                  type="button"
+                  disabled={savingId === u.id || u.username === currentUser?.username}
+                  onClick={() => setDeleteTarget(u)}
+                  title={
+                    u.username === currentUser?.username
+                      ? "Tidak dapat menghapus akun sendiri"
+                      : "Hapus akun petugas"
+                  }
+                  className="px-2.5 py-1 rounded-lg text-[11px] font-bold border border-[#C62828]/30 text-[#C62828] hover:bg-[#FDECEA] inline-flex items-center gap-1 cursor-pointer disabled:opacity-40"
+                >
+                  <Trash2 className="w-3 h-3" /> Hapus
                 </button>
               </div>
             </div>

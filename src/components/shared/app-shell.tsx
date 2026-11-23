@@ -166,7 +166,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     let active = true;
     const loadNotifications = async () => {
       try {
-        const res = await fetch(`/api/notifications?role=${encodeURIComponent(user.role)}`, {
+        const res = await fetch(
+          `/api/notifications?role=${encodeURIComponent(user.role)}&branch=${encodeURIComponent(user.branch)}&userName=${encodeURIComponent(user.name)}`,
+          {
           cache: "no-store",
         });
         if (!res.ok) return;
@@ -201,7 +203,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       active = false;
       window.removeEventListener("osg:refresh-notifications", handleRefresh);
     };
-  }, [user.role, pathname]);
+  }, [user.role, user.branch, user.name, pathname]);
 
   const currentNav =
     NAV_ITEMS.find((it) => pathname === it.href || pathname.startsWith(it.href + "/")) ||

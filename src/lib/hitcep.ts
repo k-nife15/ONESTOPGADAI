@@ -63,7 +63,7 @@ export const TABEL_TIER_UJROH: TierUjroh[] = [
  * NT Item = (Karat / 24) * Berat (g) * STLE
  */
 export function hitungNtItem(karat: number, berat: number, stle: number): number {
-  if (karat <= 0 || berat <= 0 || stle <= 0) return 0;
+  if (karat < 8 || karat > 24 || berat <= 0 || stle <= 0) return 0;
   const kemurnian = karat / 24;
   return Math.round(kemurnian * berat * stle);
 }

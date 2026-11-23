@@ -36,6 +36,8 @@ export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     const role = searchParams.get("role") || "PENAKSIR";
+    const branch = searchParams.get("branch") || "";
+    const userName = searchParams.get("userName") || "";
 
     let statusFilter: string[];
     let orderBy: { createdAt?: "asc" | "desc"; updatedAt?: "asc" | "desc" } = {
@@ -58,10 +60,14 @@ export async function GET(request: Request) {
       ];
     }
 
+    const whereClause = {
+      status: { in: statusFilter },
+      ...(role === "PENAKSIR" && branch ? { kantor: branch } : {}),
+      ...(role === "PENAKSIR" && userName ? { petugasPenaksir: userName } : {}),
+    };
+
     const rows = await prisma.transaksiRahn.findMany({
-      where: {
-        status: { in: statusFilter },
-      },
+      where: whereClause,
       select: {
         sbr: true,
         nama: true,
@@ -74,9 +80,7 @@ export async function GET(request: Request) {
     });
 
     const totalCount = await prisma.transaksiRahn.count({
-      where: {
-        status: { in: statusFilter },
-      },
+      where: whereClause,
     });
 
     const items: NotificationItem[] = rows.map((row) => {

@@ -8,7 +8,14 @@ import {
   ShieldCheck,
   FileSpreadsheet,
   RefreshCw,
+  Calendar,
 } from "lucide-react";
+
+function toJakartaDateKey(value: string | Date): string {
+  const d = typeof value === "string" ? new Date(value) : value;
+  if (isNaN(d.getTime())) return "";
+  return new Date(d.getTime() + 7 * 60 * 60 * 1000).toISOString().slice(0, 10);
+}
 
 interface AuditLogItem {
   id: string;
@@ -22,10 +29,21 @@ interface AuditLogItem {
 
 export function AuditClient({ initialLogs }: { initialLogs: AuditLogItem[] }) {
   const router = useRouter();
+  const todayKey = toJakartaDateKey(new Date());
   const [search, setSearch] = useState("");
   const [filterRole, setFilterRole] = useState("ALL");
+  const [dateMode, setDateMode] = useState<"TODAY" | "DATE" | "ALL">("TODAY");
+  const [selectedDate, setSelectedDate] = useState(todayKey);
 
   const filtered = initialLogs.filter((l) => {
+    const logDateKey = toJakartaDateKey(l.timestamp);
+    const matchDate =
+      dateMode === "ALL"
+        ? true
+        : dateMode === "TODAY"
+        ? logDateKey === todayKey
+        : logDateKey === selectedDate;
+
     const matchSearch =
       search === "" ||
       l.user.toLowerCase().includes(search.toLowerCase()) ||
@@ -35,7 +53,7 @@ export function AuditClient({ initialLogs }: { initialLogs: AuditLogItem[] }) {
 
     const matchRole = filterRole === "ALL" || l.role === filterRole;
 
-    return matchSearch && matchRole;
+    return matchDate && matchSearch && matchRole;
   });
 
   const handleExportCsv = () => {
@@ -101,7 +119,50 @@ export function AuditClient({ initialLogs }: { initialLogs: AuditLogItem[] }) {
         </div>
 
         {/* Filter Ribbon */}
-        <div className="bg-white p-4 rounded-2xl border border-[#E1E5E2] shadow-xs grid grid-cols-1 md:grid-cols-2 gap-3">
+        <div className="bg-white p-4 rounded-2xl border border-[#E1E5E2] shadow-xs space-y-3">
+          <div className="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-[#E1E5E2]">
+            <div className="flex flex-wrap items-center gap-1.5">
+              {(
+                [
+                  { id: "TODAY", label: `Hari Ini (${todayKey})` },
+                  { id: "DATE", label: "Pilih Tanggal History" },
+                  { id: "ALL", label: `Semua History (${initialLogs.length})` },
+                ] as const
+              ).map((tab) => (
+                <button
+                  key={tab.id}
+                  type="button"
+                  onClick={() => setDateMode(tab.id)}
+                  className={`h-8 px-3 rounded-lg text-xs font-bold border transition-colors cursor-pointer ${
+                    dateMode === tab.id
+                      ? "bg-[#0B5D3B] text-white border-[#0B5D3B]"
+                      : "bg-white text-[#5F6B65] border-[#E1E5E2] hover:bg-[#F6F7F5]"
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
+
+              {dateMode === "DATE" && (
+                <div className="relative inline-flex items-center">
+                  <Calendar className="w-3.5 h-3.5 absolute left-2.5 text-[#5F6B65] pointer-events-none" />
+                  <input
+                    type="date"
+                    value={selectedDate}
+                    max={todayKey}
+                    onChange={(e) => setSelectedDate(e.target.value || todayKey)}
+                    className="h-8 pl-8 pr-2.5 rounded-lg border border-[#0B5D3B] bg-white text-xs font-bold text-[#1B2420] focus:outline-none"
+                  />
+                </div>
+              )}
+            </div>
+
+            <span className="text-[11px] font-semibold text-[#5F6B65]">
+              Menampilkan <b className="text-[#1B2420]">{filtered.length}</b> aktivitas
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <div className="relative">
             <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-[#5F6B65]" />
             <input
@@ -124,7 +185,9 @@ export function AuditClient({ initialLogs }: { initialLogs: AuditLogItem[] }) {
               <option value="PEMUTUS">PEMUTUS</option>
               <option value="BACK_OFFICE">BACK OFFICE</option>
               <option value="ADMIN_IT">ADMIN IT</option>
+              <option value="SYSTEM">SYSTEM</option>
             </select>
+          </div>
           </div>
         </div>
 

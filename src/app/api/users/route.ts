@@ -184,3 +184,55 @@ export async function PATCH(request: Request) {
     );
   }
 }
+
+export async function DELETE(request: Request) {
+  try {
+    const body = await request.json();
+    const { id, actor, actorUsername } = body;
+
+    if (!id) {
+      return NextResponse.json(
+        { success: false, error: "ID User wajib disertakan." },
+        { status: 400 }
+      );
+    }
+
+    const existing = await prisma.user.findUnique({ where: { id } });
+    if (!existing) {
+      return NextResponse.json(
+        { success: false, error: "User tidak ditemukan." },
+        { status: 404 }
+      );
+    }
+
+    if (actorUsername && existing.username === String(actorUsername).toLowerCase()) {
+      return NextResponse.json(
+        { success: false, error: "Anda tidak dapat menghapus akun yang sedang digunakan." },
+        { status: 400 }
+      );
+    }
+
+    await prisma.$transaction(async (db) => {
+      await db.user.delete({ where: { id } });
+      await db.auditLog.create({
+        data: {
+          user: actor || "Admin IT",
+          role: "ADMIN_IT",
+          action: "Hapus User RBAC",
+          notes: `Menghapus akun petugas ${existing.name} (@${existing.username}, role=${existing.role}).`,
+        },
+      });
+    });
+
+    return NextResponse.json({
+      success: true,
+      message: `Akun ${existing.name} (@${existing.username}) berhasil dihapus.`,
+    });
+  } catch (error) {
+    console.error("Gagal menghapus user:", error);
+    return NextResponse.json(
+      { success: false, error: "Terjadi kesalahan server saat menghapus user." },
+      { status: 500 }
+    );
+  }
+}

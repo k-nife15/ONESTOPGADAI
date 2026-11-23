@@ -3,8 +3,8 @@
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Eye, EyeOff, Check, ChevronDown, RefreshCw } from "lucide-react";
-import { useAuth, DEMO_USERS } from "@/lib/auth-context";
-import { UserRole, CABANG_KANTOR } from "@/lib/types";
+import { useAuth } from "@/lib/auth-context";
+import { CABANG_KANTOR } from "@/lib/types";
 import { fmtRp } from "@/lib/formatters";
 import type { VendorGoldData } from "@/app/api/gold-price/route";
 
@@ -12,11 +12,10 @@ export default function LoginPage() {
   const router = useRouter();
   const { setActiveUser } = useAuth();
 
-  const [username, setUsername] = useState("19940812.ahmad");
-  const [password, setPassword] = useState("syariah2026");
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
   const [branch, setBranch] = useState<string>(CABANG_KANTOR[0]);
   const [showPass, setShowPass] = useState(false);
-  const [activeStagingRole, setActiveStagingRole] = useState<UserRole>("PENAKSIR");
   const [error, setError] = useState("");
   const [infoMsg, setInfoMsg] = useState("");
   const [loggingIn, setLoggingIn] = useState(false);
@@ -83,13 +82,6 @@ export default function LoginPage() {
     weightList.find((w) => w.weight === selectedWeight) ||
     weightList.find((w) => w.weight === "1") ||
     weightList[0];
-
-  const handleSelectStagingRole = (role: UserRole) => {
-    setActiveStagingRole(role);
-    setUsername(DEMO_USERS[role].username);
-    setPassword("syariah2026");
-    setError("");
-  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -402,41 +394,9 @@ export default function LoginPage() {
           {/* Garis Pemisah */}
           <div className="my-6 border-t border-[#E1E5E2]" />
 
-          {/* Simulasi Akses Mode Staging */}
-          <div>
-            <p className="text-[11px] font-bold uppercase tracking-wider text-[#5F6B65] mb-2.5">
-              SIMULASI AKSES · MODE STAGING
-            </p>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-              {(
-                [
-                  { role: "PENAKSIR", label: "Penaksir" },
-                  { role: "PEMUTUS", label: "Pemutus" },
-                  { role: "BACK_OFFICE", label: "Back Office" },
-                  { role: "ADMIN_IT", label: "Admin IT" },
-                ] as { role: UserRole; label: string }[]
-              ).map((item) => {
-                const isSelected = activeStagingRole === item.role;
-                return (
-                  <button
-                    key={item.role}
-                    type="button"
-                    onClick={() => handleSelectStagingRole(item.role)}
-                    className={`h-8 px-2 rounded-md text-xs font-semibold border transition-all cursor-pointer ${
-                      isSelected
-                        ? "bg-[#E6F2EC] border-[#0B5D3B] text-[#0B5D3B]"
-                        : "bg-[#F6F7F5] border-[#E1E5E2] text-[#5F6B65] hover:text-[#1B2420]"
-                    }`}
-                  >
-                    {item.label}
-                  </button>
-                );
-              })}
-            </div>
-            <p className="text-[11px] text-[#5F6B65] mt-2.5 leading-normal">
-              Pilih peran di atas untuk mengisi cepat kredensial demo, atau masukkan akun karyawan Anda secara langsung.
-            </p>
-          </div>
+          <p className="text-[11px] text-[#5F6B65] text-center leading-normal pt-2 border-t border-[#E1E5E2]">
+            Masuk menggunakan Username / NIP unik dan kata sandi resmi Anda. Peran akses ditentukan otomatis oleh sistem.
+          </p>
         </div>
 
         {/* Footer Hak Cipta */}

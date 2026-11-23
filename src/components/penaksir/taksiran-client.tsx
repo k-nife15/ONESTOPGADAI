@@ -75,28 +75,25 @@ export function TaksiranClient({
     ? initialNasabahs.find((n) => n.cif === initialCif)
     : null;
   const [selectedNasabah, setSelectedNasabah] = useState<NasabahOption | null>(
-    matchedInitial || initialNasabahs[0] || null
+    matchedInitial || null
   );
 
-  // STEP 2: BARANG JAMINAN (DEFAULT CUKUP 1 BARANG GADAI SAJA)
+  // STEP 2: BARANG JAMINAN (AWAL KOSONG HINGGA DIISI PENAKSIR)
   const [items, setItems] = useState<FormItemBarang[]>([
     {
       id: "item-1",
-      jenis: "Cincin Emas",
+      jenis: "",
       karat: 22,
       jumlah: 1,
-      beratKotor: 5.0,
-      beratBersih: 4.8,
+      beratKotor: 0,
+      beratBersih: 0,
       kondisi: "Baik",
-      nilaiTaksiran: hitungNtItem(22, 4.8, initialStle),
+      nilaiTaksiran: 0,
     },
   ]);
 
   // STEP 3: KALKULASI RESMI DENGAN HITCEP
-  const [pinjamanDimohon, setPinjamanDimohon] = useState<number>(() => {
-    const initNt = hitungNtItem(22, 4.8, initialStle);
-    return Math.round(initNt * 0.94);
-  });
+  const [pinjamanDimohon, setPinjamanDimohon] = useState<number>(0);
   const [keteranganGadai, setKeteranganGadai] = useState<string>("Baru");
   const [selectedOldSbr, setSelectedOldSbr] = useState<string>("");
   const [catatanAkad, setCatatanAkad] = useState("");
@@ -178,9 +175,6 @@ export function TaksiranClient({
     };
     const next = [...items, newItem];
     setItems(next);
-    // Auto update estimasi UP
-    const nextTot = next.reduce((s, it) => s + it.nilaiTaksiran, 0);
-    setPinjamanDimohon(Math.round(nextTot * 0.94));
   };
 
   // Update Item Barang Jaminan
@@ -198,12 +192,6 @@ export function TaksiranClient({
       return next;
     });
     setItems(updated);
-    const nextTot = updated.reduce((s, it) => s + it.nilaiTaksiran, 0);
-    const maxUp = Math.round(nextTot * 0.94);
-    // Hanya sesuaikan otomatis jika pinjaman dimohon melebihi batas maksimal baru
-    if (pinjamanDimohon > maxUp || pinjamanDimohon === 0) {
-      setPinjamanDimohon(maxUp);
-    }
   };
 
   // Hapus Item Barang
@@ -215,11 +203,6 @@ export function TaksiranClient({
     setFormError(null);
     const next = items.filter((it) => it.id !== id);
     setItems(next);
-    const nextTot = next.reduce((s, it) => s + it.nilaiTaksiran, 0);
-    const maxUp = Math.round(nextTot * 0.94);
-    if (pinjamanDimohon > maxUp) {
-      setPinjamanDimohon(maxUp);
-    }
   };
 
   // Validasi Step 1
@@ -255,8 +238,8 @@ export function TaksiranClient({
         setFormError(`Jumlah unit pada "${it.jenis}" minimal 1 pcs.`);
         return false;
       }
-      if (!it.karat || it.karat < 1 || it.karat > 24) {
-        setFormError(`Kadar karat pada "${it.jenis}" harus antara 1 sampai 24 Karat.`);
+      if (!it.karat || it.karat < 8 || it.karat > 24) {
+        setFormError(`Kadar karat pada "${it.jenis}" harus antara 8 sampai 24 Karat.`);
         return false;
       }
       if (it.beratBersih <= 0) {
@@ -320,6 +303,7 @@ export function TaksiranClient({
         tanggalJatuhTempo: tglJatuhStr,
         keteranganGadai,
         akadAsal: selectedOldSbr || null,
+        kantor: user.branch,
         petugasPenaksir: user.name,
         catatan: catatanAkad ? `${catatanAkad} | ${hitcepNote}` : hitcepNote,
         status,
@@ -589,16 +573,16 @@ export function TaksiranClient({
                   setItems([
                     {
                       id: `item-${Date.now()}`,
-                      jenis: "Cincin Emas",
+                      jenis: "",
                       karat: 22,
                       jumlah: 1,
-                      beratKotor: 5.0,
-                      beratBersih: 4.8,
+                      beratKotor: 0,
+                      beratBersih: 0,
                       kondisi: "Baik",
-                      nilaiTaksiran: hitungNtItem(22, 4.8, DEFAULT_STLE),
+                      nilaiTaksiran: 0,
                     },
                   ]);
-                  setPinjamanDimohon(Math.round(hitungNtItem(22, 4.8, DEFAULT_STLE) * 0.94));
+                  setPinjamanDimohon(0);
                   setSelectedOldSbr("");
                   setKeteranganGadai("Baru");
                   setCatatanAkad("");
@@ -1052,18 +1036,27 @@ export function TaksiranClient({
                         <div className="relative">
                           <input
                             type="number"
-                            min={1}
+                            min={8}
                             max={24}
                             disabled={keteranganGadai === "Perpanjangan"}
                             value={it.karat || ""}
-                            onChange={(e) => handleUpdateItem(it.id, "karat", parseInt(e.target.value) || 0)}
-                            placeholder="22"
-                            className="w-full h-9 pl-2.5 pr-7 rounded-lg border border-[#E1E5E2] bg-white text-xs font-bold text-[#1B2420] num focus:outline-none focus:border-[#0B5D3B] disabled:bg-[#F6F7F5]"
+                            onChange={(e) => handleUpdateItem(it.id, "karat", parseInt(e.target.value, 10) || 0)}
+                            placeholder="8–24"
+                            className={`w-full h-9 pl-2.5 pr-7 rounded-lg border bg-white text-xs font-bold text-[#1B2420] num focus:outline-none disabled:bg-[#F6F7F5] ${
+                              it.karat > 0 && (it.karat < 8 || it.karat > 24)
+                                ? "border-[#C62828] text-[#C62828] focus:border-[#C62828]"
+                                : "border-[#E1E5E2] focus:border-[#0B5D3B]"
+                            }`}
                           />
                           <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[11px] font-bold text-[#5F6B65] pointer-events-none">
                             K
                           </span>
                         </div>
+                        {it.karat > 0 && (it.karat < 8 || it.karat > 24) && (
+                          <p className="text-[10px] font-bold text-[#C62828] mt-1">
+                            Harus 8 – 24 K
+                          </p>
+                        )}
                       </div>
 
                       {/* Berat Kotor */}
@@ -1475,8 +1468,12 @@ export function TaksiranClient({
 
         {/* PANEL KANAN: RINGKASAN HITCEP RESMI (RUMUS 3, 4 & PELUNASAN) */}
         <HitcepSummaryPanel
+          step={step}
           noSbrManual={noSbrManual}
           nasabahNama={selectedNasabah?.nama}
+          nasabahCif={selectedNasabah?.cif}
+          nasabahNik={selectedNasabah?.nik}
+          nasabahHp={selectedNasabah?.hp}
           totalBeratBersih={totalBeratBersih}
           pinjamanDimohon={pinjamanDimohon}
           hitcep={hitcep}

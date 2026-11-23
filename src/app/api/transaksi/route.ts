@@ -48,6 +48,7 @@ export async function POST(request: Request) {
       tanggalAkad,
       tanggalJatuhTempo,
       keteranganGadai,
+      kantor,
       petugasPenaksir,
       catatan,
       status,
@@ -85,9 +86,9 @@ export async function POST(request: Request) {
           { status: 400 }
         );
       }
-      if (!karatNum || karatNum < 1 || karatNum > 24) {
+      if (!karatNum || karatNum < 8 || karatNum > 24) {
         return NextResponse.json(
-          { success: false, error: `Kadar karat pada "${b.jenis}" harus antara 1 sampai 24 Karat.` },
+          { success: false, error: `Kadar karat pada "${b.jenis}" harus antara 8 sampai 24 Karat.` },
           { status: 400 }
         );
       }
@@ -138,7 +139,7 @@ export async function POST(request: Request) {
           tanggalJatuhTempo,
           keteranganGadai: keteranganGadai || "Baru",
           akadAsal: akadAsal || null,
-          kantor: "Kantor Pusat Ponorogo",
+          kantor: kantor || "Kantor Pusat Ponorogo",
           petugasPenaksir: petugasPenaksir || "Ahmad Hidayat",
           status: targetStatus,
           catatan: catatan || null,
