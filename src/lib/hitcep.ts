@@ -51,11 +51,11 @@ export interface TierUjroh {
 }
 
 export const TABEL_TIER_UJROH: TierUjroh[] = [
-  { minUp: 0, maxUp: 5_000_000, ratePerBulan: 0.0125, biayaAdminFlat: 25_000 }, // Tier 1: s/d 5 Jt
-  { minUp: 5_000_001, maxUp: 20_000_000, ratePerBulan: 0.0115, biayaAdminFlat: 50_000 }, // Tier 2: 5 - 20 Jt
-  { minUp: 20_000_001, maxUp: 50_000_000, ratePerBulan: 0.01, biayaAdminFlat: 75_000 }, // Tier 3: 20 - 50 Jt
-  { minUp: 50_000_001, maxUp: 100_000_000, ratePerBulan: 0.0095, biayaAdminFlat: 100_000 }, // Tier 4: 50 - 100 Jt
-  { minUp: 100_000_001, maxUp: Infinity, ratePerBulan: 0.0085, biayaAdminFlat: 150_000 }, // Tier 5: > 100 Jt
+  { minUp: 0, maxUp: 5_000_000, ratePerBulan: 0.0125, biayaAdminFlat: 0 }, // Tier 1: s/d 5 Jt
+  { minUp: 5_000_001, maxUp: 20_000_000, ratePerBulan: 0.0115, biayaAdminFlat: 0 }, // Tier 2: 5 - 20 Jt
+  { minUp: 20_000_001, maxUp: 50_000_000, ratePerBulan: 0.01, biayaAdminFlat: 0 }, // Tier 3: 20 - 50 Jt
+  { minUp: 50_000_001, maxUp: 100_000_000, ratePerBulan: 0.0095, biayaAdminFlat: 0 }, // Tier 4: 50 - 100 Jt
+  { minUp: 100_000_001, maxUp: Infinity, ratePerBulan: 0.0085, biayaAdminFlat: 0 }, // Tier 5: > 100 Jt
 ];
 
 /**
@@ -83,7 +83,7 @@ export function lookupUjrohBulanan(up: number, totalTaksiran: number): {
 
   // Ujroh dihitung dari Nilai Taksiran Agunan Emas (Sesuai Fiqih Rahn DSN-MUI)
   const ujrohBulanan = Math.round(totalTaksiran * tier.ratePerBulan);
-  const biayaAdmin = tier.biayaAdminFlat || Math.round(safeUp * 0.005);
+  const biayaAdmin = tier.biayaAdminFlat ?? 0;
 
   return {
     ujrohBulanan,

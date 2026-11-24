@@ -5,8 +5,8 @@ import Link from "next/link";
 import { AppShell } from "@/components/shared/app-shell";
 import { useAuth } from "@/lib/auth-context";
 import { fmtRp, fmtBerat } from "@/lib/formatters";
-import { tentukanWewenangPemutus } from "@/lib/hitcep";
-import { buildQrSvgData } from "@/lib/qr";
+import { CetakStikerView } from "./cetak-stiker-view";
+import { CetakHitcepView } from "./cetak-hitcep-view";
 import {
   Printer,
   FileText,
@@ -261,7 +261,11 @@ export function CetakClient({
         return;
       }
       setTxList((prev) =>
-        prev.map((t) => (t.sbr === currentTx.sbr ? { ...t, status: "Tercetak" } : t))
+        prev.map((t) =>
+          t.sbr === currentTx.sbr
+            ? { ...t, status: data.data?.status || t.status }
+            : t
+        )
       );
       if (typeof window !== "undefined") {
         window.dispatchEvent(new Event("osg:refresh-notifications"));
@@ -314,7 +318,12 @@ export function CetakClient({
           <div className="flex items-center gap-2.5">
             <button
               type="button"
-              disabled={printing || (currentTx.status !== "Siap Cetak" && currentTx.status !== "Tercetak")}
+              disabled={
+                printing ||
+                (currentTx.status !== "Disetujui Pemutus" &&
+                  currentTx.status !== "Siap Cetak" &&
+                  currentTx.status !== "Tercetak")
+              }
               onClick={handlePrint}
               className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#0B5D3B] hover:bg-[#084530] text-white font-bold text-xs shadow-xs transition-colors cursor-pointer disabled:opacity-50"
             >
@@ -721,100 +730,7 @@ export function CetakClient({
           </div>
         )}
 
-        {activeDoc === "STIKER" && (() => {
-          const barangRingkas = currentTx.barang.length
-            ? currentTx.barang
-                .map((b) => `${b.jenis} ${b.karat} (${b.jumlah || 1}x), ${fmtBerat(b.beratBersih)}`)
-                .join("; ")
-            : "-";
-          const qrPayload = [
-            `NASABAH: ${currentTx.nama}`,
-            `CIF: ${currentTx.cif || "-"} | NIK: ${currentTx.nik}`,
-            `SBR: ${currentTx.sbr} | AKAD: ${currentTx.noAkad || "-"}`,
-            `PINJAMAN: ${fmtRp(currentTx.marhunBih)}`,
-            `TEMPO: ${currentTx.tanggalJatuhTempo}`,
-            `BARANG: ${barangRingkas}`,
-          ].join("\n");
-          const qr = buildQrSvgData(qrPayload);
-
-          return (
-            <div className="max-w-md mx-auto p-6 border-2 border-dashed border-[#0B5D3B] rounded-2xl bg-white space-y-4 print:border print:rounded-lg">
-              <div className="flex flex-col items-center text-center border-b border-[#E1E5E2] pb-4 space-y-2.5">
-                <span className="text-[10px] font-extrabold uppercase tracking-wider text-[#084530]">
-                  STIKER KANTONG MARHUN
-                </span>
-                <div className="w-40 h-40 border border-[#E1E5E2] rounded-xl p-2 bg-white shadow-2xs">
-                  <svg
-                    viewBox={`0 0 ${qr.size} ${qr.size}`}
-                    xmlns="http://www.w3.org/2000/svg"
-                    shapeRendering="crispEdges"
-                    className="w-full h-full"
-                    aria-label={`QR Code ${currentTx.sbr}`}
-                  >
-                    <rect width={qr.size} height={qr.size} fill="#ffffff" />
-                    <path d={qr.path} fill="#000000" />
-                  </svg>
-                </div>
-                <div>
-                  <p className="text-base font-extrabold text-[#1B2420]">
-                    {currentTx.nama}
-                  </p>
-                  <p className="text-[11px] font-mono font-bold text-[#0B5D3B]">
-                    CIF: {currentTx.cif || "-"} · SBR: {currentTx.sbr}
-                  </p>
-                  <p className="text-[11px] font-mono text-[#5F6B65]">
-                    NIK: {currentTx.nik}
-                  </p>
-                </div>
-              </div>
-
-              <div className="space-y-1.5 text-xs">
-                <div className="flex justify-between gap-2">
-                  <span className="text-[#5F6B65]">No. Akad</span>
-                  <span className="font-mono font-bold text-[#1B2420]">{currentTx.noAkad || "-"}</span>
-                </div>
-                <div className="flex justify-between gap-2">
-                  <span className="text-[#5F6B65]">UP / Plafond</span>
-                  <span className="font-extrabold text-[#0B5D3B] num">{fmtRp(currentTx.marhunBih)}</span>
-                </div>
-                <div className="flex justify-between gap-2">
-                  <span className="text-[#5F6B65]">Ujroh 4 Bulan</span>
-                  <span className="font-bold text-[#1B2420] num">{fmtRp(currentTx.ujroh)}</span>
-                </div>
-                <div className="flex justify-between gap-2">
-                  <span className="text-[#5F6B65]">Mulai – Jatuh Tempo</span>
-                  <span className="font-semibold text-[#1B2420] text-right">
-                    {currentTx.tanggalAkad} – <b className="text-[#C62828]">{currentTx.tanggalJatuhTempo}</b>
-                  </span>
-                </div>
-                <div className="flex justify-between gap-2">
-                  <span className="text-[#5F6B65]">Kantor</span>
-                  <span className="font-semibold text-[#1B2420] text-right">{currentTx.kantor}</span>
-                </div>
-                <div className="flex justify-between gap-2">
-                  <span className="text-[#5F6B65]">Keterangan</span>
-                  <span className="font-bold uppercase text-[#084530]">{currentTx.keteranganGadai || "BARU"}</span>
-                </div>
-                <div className="pt-1.5 border-t border-[#E1E5E2]">
-                  <span className="text-[#5F6B65] block text-[11px] mb-0.5">
-                    Rincian Barang ({fmtBerat(currentTx.totalBeratBersih)}):
-                  </span>
-                  <ul className="space-y-0.5 text-[11px] font-semibold text-[#1B2420]">
-                    {currentTx.barang.length > 0 ? (
-                      currentTx.barang.map((b, i) => (
-                        <li key={b.id || i}>
-                          {i + 1}. {b.jumlah || 1} {b.jenis}, {b.karat}, {fmtBerat(b.beratBersih)}
-                        </li>
-                      ))
-                    ) : (
-                      <li>{barangRingkas}</li>
-                    )}
-                  </ul>
-                </div>
-              </div>
-            </div>
-          );
-        })()}
+        {activeDoc === "STIKER" && <CetakStikerView currentTx={currentTx} />}
 
         {activeDoc === "NOTA" && (
           <div className="space-y-3 print:space-y-0">
@@ -966,205 +882,7 @@ export function CetakClient({
           </div>
         )}
 
-        {activeDoc === "HITCEP" && (
-          <div className="space-y-4">
-            <div className="flex justify-between items-start border-b border-[#E1E5E2] pb-3">
-              <div>
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src="/logo-mitra-syariah.png"
-                  alt="Bank Mitra Syariah"
-                  className="h-9 w-auto mb-1.5 object-contain"
-                />
-                <h3 className="text-base font-extrabold text-[#084530]">LEMBAR KERJA PENAKSIRAN EMAS (HITCEP)</h3>
-                <p className="text-xs text-[#5F6B65]">
-                  Perhitungan Standar Taksiran Logam Emas &amp; Matriks Kewenangan · Akad: <b>{currentTx.keteranganGadai}</b>
-                </p>
-                <p className="text-[11px] text-[#5F6B65] mt-0.5">
-                  Tgl Akad: <b>{currentTx.tanggalAkad}</b> · Jatuh Tempo: <b>{currentTx.tanggalJatuhTempo}</b>
-                </p>
-              </div>
-              <div className="text-right">
-                <span className="font-mono font-bold text-xs bg-[#E6F2EC] px-3 py-1 rounded text-[#084530]">
-                  {currentTx.sbr}
-                </span>
-                <p className="text-[10px] text-[#5F6B65] mt-1">
-                  Nasabah: <b>{currentTx.nama}</b> ({currentTx.cif || "-"})
-                </p>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              <div className="p-3 rounded-lg border border-[#E1E5E2] bg-[#F6F7F5]">
-                <p className="text-[10px] text-[#5F6B65]">Total Taksiran (NT)</p>
-                <p className="text-sm font-extrabold text-[#0B5D3B] num">{fmtRp(currentTx.totalTaksiran)}</p>
-              </div>
-              <div className="p-3 rounded-lg border border-[#E1E5E2] bg-[#F6F7F5]">
-                <p className="text-[10px] text-[#5F6B65]">UP Maks (94% FTV)</p>
-                <p className="text-sm font-extrabold num">{fmtRp(Math.round(currentTx.totalTaksiran * 0.94))}</p>
-              </div>
-              <div className="p-3 rounded-lg border border-[#0B5D3B]/30 bg-[#E6F2EC]">
-                <p className="text-[10px] text-[#084530]">UP Disetujui</p>
-                <p className="text-sm font-extrabold text-[#084530] num">{fmtRp(currentTx.marhunBih)}</p>
-              </div>
-              <div className="p-3 rounded-lg border border-[#C9A227]/40 bg-[#FBF3D6]/70">
-                <p className="text-[10px] text-[#7A6110]">Wewenang Pemutus</p>
-                <p className="text-sm font-extrabold text-[#7A6110]">
-                  {tentukanWewenangPemutus(currentTx.marhunBih)}
-                </p>
-              </div>
-            </div>
-
-            <table className="w-full border-collapse border border-[#E1E5E2] text-xs">
-              <thead>
-                <tr className="bg-[#E6F2EC] text-[#084530] font-bold text-left">
-                  <th className="p-2 border border-[#E1E5E2]">Barang Jaminan</th>
-                  <th className="p-2 border border-[#E1E5E2]">Karat</th>
-                  <th className="p-2 border border-[#E1E5E2] text-right">Qty</th>
-                  <th className="p-2 border border-[#E1E5E2] text-right">Berat Kotor</th>
-                  <th className="p-2 border border-[#E1E5E2] text-right">Berat Bersih</th>
-                  <th className="p-2 border border-[#E1E5E2] text-right">Nilai Taksiran</th>
-                </tr>
-              </thead>
-              <tbody>
-                {currentTx.barang.map((b, idx) => (
-                  <tr key={b.id || idx}>
-                    <td className="p-2 border border-[#E1E5E2] font-semibold">{b.jenis}</td>
-                    <td className="p-2 border border-[#E1E5E2] font-bold text-[#C9A227]">{b.karat}</td>
-                    <td className="p-2 border border-[#E1E5E2] text-right num">{b.jumlah || 1}</td>
-                    <td className="p-2 border border-[#E1E5E2] text-right num">{fmtBerat(b.beratKotor)}</td>
-                    <td className="p-2 border border-[#E1E5E2] text-right num font-bold">{fmtBerat(b.beratBersih)}</td>
-                    <td className="p-2 border border-[#E1E5E2] text-right num font-bold text-[#0B5D3B]">
-                      {fmtRp(b.nilaiTaksiran)}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start">
-              {/* 16 Poin Konsol HITCEP sesuai Master Excel */}
-              <div className="lg:col-span-7 border border-[#E1E5E2] rounded-xl overflow-hidden">
-                <div className="bg-[#084530] text-white px-3 py-2 text-[11px] font-bold">
-                  RINGKASAN KONSOLIDASI HITCEP (16 PARAMETER)
-                </div>
-                <table className="w-full text-[11px] border-collapse">
-                  <tbody className="divide-y divide-[#E1E5E2]">
-                    {[
-                      ["1. Nama Nasabah", currentTx.nama],
-                      [
-                        "2. Nama Barang",
-                        currentTx.barang.map((b) => `${b.jumlah || 1} ${b.jenis}`).join(", ") || "-",
-                      ],
-                      [
-                        "3. Kadar / Karatase",
-                        currentTx.barang.map((b) => b.karat).join(", ") || "-",
-                      ],
-                      ["4. Berat Emas Bersih", fmtBerat(currentTx.totalBeratBersih)],
-                      ["5. Tanggal Mulai – JT", `${currentTx.tanggalAkad} s.d. ${currentTx.tanggalJatuhTempo}`],
-                      ["6. Nilai Taksiran (NT)", fmtRp(currentTx.totalTaksiran)],
-                      ["7. UP Maks (94% FTV)", fmtRp(Math.round(currentTx.totalTaksiran * 0.94))],
-                      ["8. Pembanding PPAP (85% NT)", fmtRp(Math.round(currentTx.totalTaksiran * 0.85))],
-                      ["9. UP Disetujui (Plafond)", fmtRp(currentTx.marhunBih)],
-                      [
-                        "10. Status Limit UP Maks",
-                        currentTx.marhunBih <= Math.round(currentTx.totalTaksiran * 0.94)
-                          ? "BENAR (Sesuai Limit)"
-                          : "MELEBIHI LIMIT",
-                      ],
-                      ["11. Ujroh Bulanan", fmtRp(Math.round(currentTx.ujroh / 4))],
-                      ["12. Ujroh 4 Bulan", fmtRp(currentTx.ujroh)],
-                      ["13. Biaya Admin", fmtRp(currentTx.biayaAdmin)],
-                      ["14. DP Ujroh", fmtRp(0)],
-                      ["15. Petugas Penaksir", currentTx.petugasPenaksir || "-"],
-                      [
-                        "16. Total Plafond + Ujroh",
-                        fmtRp(currentTx.marhunBih + currentTx.ujroh + currentTx.biayaAdmin),
-                      ],
-                    ].map(([label, value], i) => (
-                      <tr key={label} className={i % 2 === 0 ? "bg-white" : "bg-[#F6F7F5]/60"}>
-                        <td className="py-1.5 px-3 text-[#5F6B65] font-medium w-[48%]">{label}</td>
-                        <td className="py-1.5 px-3 font-bold text-[#1B2420] num text-right">{value}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-
-              {/* Matriks Batas Wewenang Pemutus Komite */}
-              <div className="lg:col-span-5 space-y-3">
-                <div className="border border-[#E1E5E2] rounded-xl overflow-hidden">
-                  <div className="bg-[#FBF3D6] text-[#7A6110] px-3 py-2 text-[11px] font-bold border-b border-[#C9A227]/30">
-                    BATAS WEWENANG PEMUTUS KOMITE
-                  </div>
-                  <table className="w-full text-[10px] border-collapse text-center">
-                    <thead>
-                      <tr className="bg-[#F6F7F5] text-[#5F6B65] border-b border-[#E1E5E2]">
-                        <th className="p-2 text-left">Plafond</th>
-                        <th className="p-1.5">Kabag Mkt</th>
-                        <th className="p-1.5">Dir. Bisnis</th>
-                        <th className="p-1.5">Dekom</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-[#E1E5E2]">
-                      <tr className={currentTx.marhunBih <= 50_000_000 ? "bg-[#E6F2EC] font-bold text-[#084530]" : ""}>
-                        <td className="p-2 text-left">500rb – 50jt</td>
-                        <td className="p-1.5">&#10003;</td>
-                        <td className="p-1.5">-</td>
-                        <td className="p-1.5">-</td>
-                      </tr>
-                      <tr
-                        className={
-                          currentTx.marhunBih > 50_000_000 && currentTx.marhunBih <= 100_000_000
-                            ? "bg-[#E6F2EC] font-bold text-[#084530]"
-                            : ""
-                        }
-                      >
-                        <td className="p-2 text-left">&gt; 50jt – 100jt</td>
-                        <td className="p-1.5">&#10003;</td>
-                        <td className="p-1.5">&#10003;</td>
-                        <td className="p-1.5">-</td>
-                      </tr>
-                      <tr className={currentTx.marhunBih > 100_000_000 ? "bg-[#E6F2EC] font-bold text-[#084530]" : ""}>
-                        <td className="p-2 text-left">&gt; 100jt – 250jt</td>
-                        <td className="p-1.5">&#10003;</td>
-                        <td className="p-1.5">&#10003;</td>
-                        <td className="p-1.5">&#10003;</td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
-
-                <div className="p-3 rounded-xl border border-[#E1E5E2] bg-[#F6F7F5] text-[11px] space-y-1">
-                  <p className="text-[#5F6B65]">Selisih Risiko PPAP (UP Maks − 85% NT):</p>
-                  <p className="text-sm font-extrabold text-[#0B5D3B] num">
-                    {fmtRp(Math.round(currentTx.totalTaksiran * 0.94) - Math.round(currentTx.totalTaksiran * 0.85))}
-                  </p>
-                  <p className="text-[10px] text-[#5F6B65]">
-                    Wewenang Aktif: <b className="text-[#084530]">{tentukanWewenangPemutus(currentTx.marhunBih)}</b>
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            <div className="pt-6 grid grid-cols-2 gap-8 text-center text-xs">
-              <div>
-                <p className="text-[10px] text-[#5F6B65] mb-12">Petugas Penaksir</p>
-                <p className="font-bold border-t border-[#1B2420] pt-1 max-w-[220px] mx-auto">
-                  {currentTx.petugasPenaksir}
-                </p>
-              </div>
-              <div>
-                <p className="text-[10px] text-[#5F6B65] mb-12">
-                  Pejabat Pemutus ({tentukanWewenangPemutus(currentTx.marhunBih)})
-                </p>
-                <p className="font-bold border-t border-[#1B2420] pt-1 max-w-[220px] mx-auto">
-                  {currentTx.pemutusTtd || "-"}
-                </p>
-              </div>
-            </div>
-          </div>
-        )}
+        {activeDoc === "HITCEP" && <CetakHitcepView currentTx={currentTx} />}
       </div>
     </AppShell>
   );

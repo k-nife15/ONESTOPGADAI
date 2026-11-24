@@ -102,9 +102,9 @@ export default function LoginPage() {
           branch,
         }),
       });
-      const data = await res.json();
-      if (!data.success) {
-        setError(data.error || "Gagal masuk ke sistem.");
+      const data = await res.json().catch(() => null);
+      if (!data || !data.success) {
+        setError(data?.error || `Gagal masuk ke sistem (HTTP ${res.status}).`);
         return;
       }
       setActiveUser(data.user);

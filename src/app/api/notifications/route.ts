@@ -18,11 +18,11 @@ function mapStatusToAction(status: string): { href: string; label: string } {
     case "Menunggu Pemutus":
       return { href: "/pemutus", label: "Perlu Otorisasi Pemutus" };
     case "Disetujui Pemutus":
-      return { href: "/monitoring", label: "Disetujui — Bacakan ke Nasabah" };
+      return { href: "/monitoring", label: "Disetujui — Cetak SBR & TTD Nasabah" };
     case "Menunggu Back Office":
-      return { href: "/backoffice", label: "Perlu Registrasi Back Office" };
+      return { href: "/backoffice", label: "Perlu Input No. Akad, SBG & Kontrak" };
     case "Siap Cetak":
-      return { href: "/cetak", label: "Siap Cetak Dokumen" };
+      return { href: "/monitoring", label: "No. Akad/SBG Terbit — Catat di SBR" };
     case "Draft":
       return { href: "/monitoring", label: "Draft Belum Diajukan" };
     case "Dibatalkan":

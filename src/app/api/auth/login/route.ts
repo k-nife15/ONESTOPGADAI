@@ -60,6 +60,11 @@ export async function POST(request: Request) {
       );
     }
 
+    await prisma.user.update({
+      where: { id: dbUser.id },
+      data: { lastSeenAt: new Date() },
+    });
+
     return NextResponse.json({
       success: true,
       user: {

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { AppShell } from "@/components/shared/app-shell";
 import { useAuth } from "@/lib/auth-context";
 import { DEFAULT_STLE, fmtRp } from "@/lib/formatters";
@@ -24,7 +24,24 @@ interface UserItem {
   role: string;
   active: boolean;
   branch: string;
+  lastSeenAt?: string | null;
   updatedAt: string;
+}
+
+const ONLINE_WINDOW_MS = 2 * 60 * 1000;
+
+function isUserOnline(lastSeenAt?: string | null, nowMs: number = Date.now()): boolean {
+  if (!lastSeenAt) return false;
+  const ts = new Date(lastSeenAt).getTime();
+  if (Number.isNaN(ts)) return false;
+  return nowMs - ts <= ONLINE_WINDOW_MS;
+}
+
+function formatLastSeen(lastSeenAt?: string | null): string {
+  if (!lastSeenAt) return "Belum ada aktivitas";
+  const d = new Date(lastSeenAt);
+  if (Number.isNaN(d.getTime())) return "-";
+  return `Terakhir aktif ${d.toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" })}`;
 }
 
 export function UsersClient({
@@ -54,6 +71,30 @@ export function UsersClient({
   const [stleInput, setStleInput] = useState<number>(initialStle);
   const [savingStle, setSavingStle] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<UserItem | null>(null);
+  const [nowMs, setNowMs] = useState<number>(() => Date.now());
+
+  useEffect(() => {
+    let active = true;
+    const pollUsers = async () => {
+      try {
+        const res = await fetch("/api/users", { cache: "no-store" });
+        const data = await res.json();
+        if (active && data?.success && Array.isArray(data.data)) {
+          setUsers(data.data);
+          setNowMs(Date.now());
+        }
+      } catch {
+        // Ignore transient network errors during background poll
+      }
+    };
+    const timer = setInterval(pollUsers, 30_000);
+    return () => {
+      active = false;
+      clearInterval(timer);
+    };
+  }, []);
+
+  const onlineCount = users.filter((u) => isUserOnline(u.lastSeenAt, nowMs)).length;
 
   const toggleStatus = async (target: UserItem) => {
     if (target.active && target.username === currentUser?.username) {
@@ -543,6 +584,10 @@ export function UsersClient({
               <span className="px-2.5 py-0.5 rounded-full bg-[#E6F2EC] text-[#084530] text-[11px] font-bold border border-[#0B5D3B]/20">
                 Akses Khusus Admin IT
               </span>
+              <span className="px-2.5 py-0.5 rounded-full bg-[#E8F5E9] text-[#2E7D32] text-[11px] font-bold border border-[#2E7D32]/25 inline-flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-[#2E7D32] animate-pulse" />
+                {onlineCount} Petugas Online
+              </span>
             </div>
             <p className="text-xs text-[#5F6B65] mt-1">
               Pengaturan akun petugas loket penaksir, pemutus akad pembiayaan, kasir back office, dan dewan pengawas.
@@ -632,7 +677,7 @@ export function UsersClient({
               className="bg-white p-5 rounded-2xl border border-[#E1E5E2] shadow-xs flex items-start justify-between gap-4"
             >
               <div className="space-y-1.5">
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
                   <span className="font-extrabold text-sm text-[#1B2420]">{u.name}</span>
                   <span
                     className={`px-2 py-0.5 rounded text-[10px] font-bold ${
@@ -647,6 +692,20 @@ export function UsersClient({
                   >
                     {u.role}
                   </span>
+                  {isUserOnline(u.lastSeenAt, nowMs) ? (
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#E8F5E9] text-[#2E7D32] border border-[#2E7D32]/25 inline-flex items-center gap-1">
+                      <span className="w-1.5 h-1.5 rounded-full bg-[#2E7D32]" />
+                      Online
+                    </span>
+                  ) : (
+                    <span
+                      title={formatLastSeen(u.lastSeenAt)}
+                      className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-[#F6F7F5] text-[#5F6B65] border border-[#E1E5E2] inline-flex items-center gap-1"
+                    >
+                      <span className="w-1.5 h-1.5 rounded-full bg-[#9AA5A0]" />
+                      Offline
+                    </span>
+                  )}
                 </div>
                 <p className="text-xs text-[#5F6B65] font-mono">Username: @{u.username}</p>
                 <p className="text-xs text-[#5F6B65] flex items-center gap-1">

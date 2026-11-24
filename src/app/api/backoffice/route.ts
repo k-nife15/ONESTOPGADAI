@@ -226,14 +226,6 @@ export async function PATCH(request: Request) {
         return updatedTx;
       });
 
-      void notifyNasabahWa({
-        event: "TRANSAKSI_REJECTED",
-        sbr: updated.sbr,
-        nama: updated.nama,
-        hp: updated.hp,
-        alasan: reason,
-      });
-
       return NextResponse.json({ success: true, data: updated });
     }
 

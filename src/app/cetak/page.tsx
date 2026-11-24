@@ -16,12 +16,12 @@ export default async function CetakPage({
     where: targetSbr
       ? {
           OR: [
-            { status: { in: ["Siap Cetak", "Tercetak", "Lunas"] } },
+            { status: { in: ["Disetujui Pemutus", "Siap Cetak", "Tercetak", "Lunas"] } },
             { sbr: targetSbr },
           ],
         }
       : {
-          status: { in: ["Siap Cetak", "Tercetak", "Lunas"] },
+          status: { in: ["Disetujui Pemutus", "Siap Cetak", "Tercetak", "Lunas"] },
         },
     include: {
       barang: true,

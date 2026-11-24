@@ -337,7 +337,7 @@ export function DashboardClient({ initialTransaksi }: DashboardClientProps) {
       case "Menunggu Back Office":
         return <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-[#E3F0FB] text-[#1E6FB8]">Menunggu Back Office</span>;
       case "Siap Cetak":
-        return <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-[#E4F3E5] text-[#2E7D32]">Terverifikasi · Siap Cetak</span>;
+        return <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-[#E4F3E5] text-[#2E7D32]">Terverifikasi · Catat Nomor SBR</span>;
       case "Tercetak":
         return <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-[#EEE8F8] text-[#5B3FA0]">Tercetak</span>;
       case "Lunas":
@@ -471,7 +471,7 @@ export function DashboardClient({ initialTransaksi }: DashboardClientProps) {
           }`}
         >
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-[#0B5D3B]">Siap Cetak Dokumen</span>
+            <span className="text-xs font-bold text-[#0B5D3B]">Catat Nomor SBR / Nota</span>
             <div className="w-9 h-9 rounded-xl bg-[#E6F2EC] flex items-center justify-center text-[#0B5D3B]">
               <Printer className="w-4 h-4" />
             </div>
@@ -844,6 +844,8 @@ export function DashboardClient({ initialTransaksi }: DashboardClientProps) {
                       ? "Semua Status"
                       : isDuePill
                       ? `Jatuh Tempo (${jatuhTempoCount})`
+                      : st === "Siap Cetak"
+                      ? "Catat Nomor SBR"
                       : st}
                   </button>
                 );

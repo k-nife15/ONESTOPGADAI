@@ -24,7 +24,7 @@ export function ConfirmNasabahModal({
         <div className="flex items-start justify-between gap-3 pb-3 border-b border-[#E1E5E2]">
           <div>
             <span className="text-[11px] font-bold uppercase tracking-wider text-[#0B5D3B]">
-              Putusan Pemutus — Bacakan ke Nasabah
+              SBR Sudah Dicetak &amp; Ditandatangani Nasabah
             </span>
             <h3 className="text-base font-extrabold text-[#1B2420] mt-0.5">
               {tx.nama} · <span className="font-mono text-[#084530]">{tx.sbr}</span>
@@ -88,7 +88,7 @@ export function ConfirmNasabahModal({
             className="h-10 px-5 rounded-xl bg-[#0B5D3B] hover:bg-[#084530] text-white text-xs font-extrabold inline-flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
           >
             <CheckCircle2 className="w-4 h-4" />
-            Nasabah Setuju → Ke Back Office
+            Sudah TTD Nasabah → Kirim ke Back Office
           </button>
         </div>
       </div>

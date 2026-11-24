@@ -396,6 +396,59 @@ export async function PATCH(request: Request) {
       return NextResponse.json({ success: true, data: updated });
     }
 
+    // Aksi 5: Penaksir Menandai Nomor Legalitas Sudah Dicatat ke Kertas SBR (Siap Cetak -> Tercetak)
+    if (action === "MARK_SBR_RECORDED") {
+      if (tx.status !== "Siap Cetak") {
+        return NextResponse.json(
+          {
+            success: false,
+            error: "Hanya berkas berstatus Siap Cetak yang dapat ditandai sudah dicatat di SBR.",
+          },
+          { status: 400 }
+        );
+      }
+
+      const updated = await prisma.$transaction(async (db) => {
+        const updatedTx = await db.transaksiRahn.update({
+          where: { sbr },
+          data: { status: "Tercetak" },
+        });
+
+        if (tx.akadAsal) {
+          const oldTx = await db.transaksiRahn.findUnique({ where: { sbr: tx.akadAsal } });
+          if (oldTx && oldTx.status !== "Lunas" && oldTx.status !== "Dibatalkan") {
+            await db.transaksiRahn.update({
+              where: { sbr: tx.akadAsal },
+              data: { status: "Lunas" },
+            });
+            await db.auditLog.create({
+              data: {
+                user: user || "Ahmad Hidayat",
+                role: "PENAKSIR",
+                action: "Pelunasan Akad Asal",
+                refId: tx.akadAsal,
+                notes: `Akad ${tx.akadAsal} otomatis ditutup menjadi Lunas karena digantikan oleh akad baru ${sbr} (${tx.keteranganGadai}).`,
+              },
+            });
+          }
+        }
+
+        await db.auditLog.create({
+          data: {
+            user: user || "Ahmad Hidayat",
+            role: "PENAKSIR",
+            action: "Nomor Legalitas Dicatat di SBR",
+            refId: sbr,
+            notes: `Penaksir menandai No. Akad (${tx.noAkad || "-"}), No. SBG (${tx.noSbg || "-"}), No. Kontrak (${tx.noKontrak || "-"}) sudah dicatat manual ke kertas SBR.`,
+          },
+        });
+
+        return updatedTx;
+      });
+
+      return NextResponse.json({ success: true, data: updated });
+    }
+
     return NextResponse.json(
       { success: false, error: "Aksi PATCH tidak dikenali." },
       { status: 400 }

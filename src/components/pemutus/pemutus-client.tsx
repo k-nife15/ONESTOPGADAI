@@ -135,18 +135,24 @@ export function PemutusClient({
         msg: `Transaksi ${activeTx.sbr} (${activeTx.nama}) disetujui & dikembalikan ke loket Penaksir untuk konfirmasi nasabah.`,
       });
 
-      setTransaksis((prev) =>
-        prev.map((t) =>
-          t.sbr === activeTx.sbr
-            ? {
-                ...t,
-                status: "Disetujui Pemutus",
-                pemutusTtd: user?.name || "Arifin Nugroho, SE",
-                catatan: data.data?.catatan || catatanPemutus,
-              }
-            : t
-        )
+      const updatedList = transaksis.map((t) =>
+        t.sbr === activeTx.sbr
+          ? {
+              ...t,
+              status: "Disetujui Pemutus",
+              pemutusTtd: user?.name || "Arifin Nugroho, SE",
+              catatan: data.data?.catatan || catatanPemutus,
+            }
+          : t
       );
+      setTransaksis(updatedList);
+      const nextQueued = updatedList.find((t) => t.status === "Menunggu Pemutus");
+      if (nextQueued) {
+        setSelectedSbr(nextQueued.sbr);
+        setCatatanPemutus(
+          "Fisik perhiasan dan kadar karat telah diverifikasi. Plafon disetujui sesuai rekomendasi penaksir."
+        );
+      }
       if (typeof window !== "undefined") {
         window.dispatchEvent(new Event("osg:refresh-notifications"));
       }
@@ -191,9 +197,17 @@ export function PemutusClient({
         msg: `Transaksi ${activeTx.sbr} telah ditolak/dikembalikan ke penaksir.`,
       });
 
-      setTransaksis((prev) =>
-        prev.map((t) => (t.sbr === activeTx.sbr ? { ...t, status: "Dibatalkan", batalAlasan: reason } : t))
+      const updatedList = transaksis.map((t) =>
+        t.sbr === activeTx.sbr ? { ...t, status: "Dibatalkan", batalAlasan: reason } : t
       );
+      setTransaksis(updatedList);
+      const nextQueued = updatedList.find((t) => t.status === "Menunggu Pemutus");
+      if (nextQueued) {
+        setSelectedSbr(nextQueued.sbr);
+        setCatatanPemutus(
+          "Fisik perhiasan dan kadar karat telah diverifikasi. Plafon disetujui sesuai rekomendasi penaksir."
+        );
+      }
       if (typeof window !== "undefined") {
         window.dispatchEvent(new Event("osg:refresh-notifications"));
       }

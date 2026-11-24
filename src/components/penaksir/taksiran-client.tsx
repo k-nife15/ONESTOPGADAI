@@ -315,9 +315,9 @@ export function TaksiranClient({
         body: JSON.stringify(payload),
       });
 
-      const result = await res.json();
-      if (!result.success) {
-        setFormError(result.error || "Gagal menyimpan transaksi.");
+      const result = await res.json().catch(() => null);
+      if (!result || !result.success) {
+        setFormError(result?.error || `Gagal menyimpan transaksi (HTTP ${res.status}).`);
         setSubmitting(false);
         return;
       }
@@ -333,6 +333,8 @@ export function TaksiranClient({
       if (typeof window !== "undefined") {
         window.dispatchEvent(new Event("osg:refresh-notifications"));
       }
+      router.refresh();
+      router.push("/monitoring");
     } catch {
       setFormError("Terjadi kesalahan koneksi saat menghubungi server.");
     } finally {
@@ -634,7 +636,7 @@ export function TaksiranClient({
                   onClick={() => setActiveConfirmTx(tx)}
                   className="h-8 px-3 rounded-lg bg-[#0B5D3B] hover:bg-[#084530] text-white text-[11px] font-bold shrink-0 cursor-pointer"
                 >
-                  Bacakan &amp; Konfirmasi
+                  Sudah TTD → Ke BO
                 </button>
               </div>
             ))}

@@ -63,6 +63,7 @@ interface AuthContextType {
     branch?: string;
   }) => void;
   loginWithUsername: (username: string, branch?: string) => ActiveUser;
+  logout: () => void;
 }
 
 const ROLE_LABELS: Record<UserRole, string> = {
@@ -161,8 +162,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return nextUser;
   };
 
+  const logout = () => {
+    try {
+      localStorage.removeItem("osg_active_user");
+      localStorage.removeItem("osg_active_role");
+      localStorage.removeItem("osg_active_branch");
+    } catch {
+      // Ignore storage errors
+    }
+    setUser(DEMO_USERS.PENAKSIR);
+  };
+
   return (
-    <AuthContext.Provider value={{ user, setRole, setActiveUser, loginWithUsername }}>
+    <AuthContext.Provider value={{ user, setRole, setActiveUser, loginWithUsername, logout }}>
       {children}
     </AuthContext.Provider>
   );

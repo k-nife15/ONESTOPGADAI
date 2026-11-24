@@ -14,6 +14,7 @@ export async function GET() {
         role: true,
         branch: true,
         active: true,
+        lastSeenAt: true,
         createdAt: true,
         updatedAt: true,
       },

@@ -67,7 +67,7 @@ export function buildWaMessage(payload: WaNotificationPayload): string {
       return [
         `Assalamu'alaikum Wr. Wb. Bpk/Ibu *${nama}*,`,
         ``,
-        `Akad Gadai Syariah (Rahn) Anda telah selesai diregistrasi dan siap dicairkan:`,
+        `Akad Gadai Syariah (Rahn) Anda telah *DISETUJUI* dan selesai diregistrasi:`,
         `• No. Berkas: *${sbr}*`,
         noAkad ? `• No. Akad: *${noAkad}*` : "",
         noSbg ? `• No. SBG: *${noSbg}*` : "",

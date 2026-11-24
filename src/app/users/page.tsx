@@ -24,6 +24,7 @@ export default async function UsersPage() {
     role: u.role,
     active: u.active,
     branch: u.branch,
+    lastSeenAt: u.lastSeenAt ? u.lastSeenAt.toISOString() : null,
     updatedAt: u.updatedAt.toISOString(),
   }));
 

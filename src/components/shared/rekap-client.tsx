@@ -209,7 +209,7 @@ export function RekapClient({ transaksis }: { transaksis: RekapItem[] }) {
               <option value="Menunggu Pemutus">Menunggu Pemutus</option>
               <option value="Disetujui Pemutus">Disetujui Pemutus</option>
               <option value="Menunggu Back Office">Menunggu Back Office</option>
-              <option value="Siap Cetak">Siap Cetak</option>
+              <option value="Siap Cetak">Catat Nomor SBR</option>
               <option value="Tercetak">Tercetak</option>
               <option value="Lunas">Lunas</option>
               <option value="Lelang">Lelang</option>
@@ -270,7 +270,7 @@ export function RekapClient({ transaksis }: { transaksis: RekapItem[] }) {
                             : "bg-[#FBF3D6] text-[#7A6110]"
                         }`}
                       >
-                        {t.status}
+                        {t.status === "Siap Cetak" ? "Catat Nomor SBR" : t.status}
                       </span>
                     </td>
                     <td className="p-3 text-center">

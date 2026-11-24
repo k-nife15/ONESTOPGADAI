@@ -62,7 +62,7 @@ export const ISIAN_SBR: SbrFieldOverlay[] = [
   { k: "kodeUnit", label: "Kode Unit / Cabang", l: 30.03, t: 20.03, f: 1.0, v: (t) => (t.kantor || "").toUpperCase() || "-" },
   { k: "s_cif", label: "CIF (Slip Custody)", l: 60.5, t: 21.6, f: 0.85, v: (t) => t.cif || "-" },
   { k: "r_cif", label: "CIF (Slip Rahin)", l: 81.3, t: 21.6, f: 0.82, v: (t) => t.cif || "-" },
-  { k: "noAkad", label: "No. Akad", l: 25.77, t: 22.01, f: 1.0, v: (t) => t.noAkad || "-" },
+  { k: "noAkad", label: "No. Akad", l: 25.77, t: 22.01, f: 1.0, v: (t) => t.noAkad || "" },
   { k: "cif", label: "CIF Utama", l: 11.95, t: 25.3, f: 0.88, v: (t) => t.cif || "-" },
   { k: "s_nama", label: "Nama (Slip Custody)", l: 56.5, t: 28.4, f: 0.8, w: 17.0, v: (t) => t.nama.toUpperCase() },
   { k: "r_nama", label: "Nama (Slip Rahin)", l: 77.3, t: 28.4, f: 0.78, w: 13.0, v: (t) => t.nama.toUpperCase() },
@@ -90,8 +90,8 @@ export const ISIAN_SBR: SbrFieldOverlay[] = [
             .join("\n")
         : "-",
   },
-  { k: "s_no", label: "No. (Slip Custody)", l: 59.0, t: 45.8, f: 0.85, v: (t) => t.noSbg || t.sbr },
-  { k: "r_no", label: "No. (Slip Rahin)", l: 79.8, t: 45.8, f: 0.82, v: (t) => t.noSbg || t.sbr },
+  { k: "s_no", label: "No. (Slip Custody)", l: 59.0, t: 45.8, f: 0.85, v: () => "" },
+  { k: "r_no", label: "No. (Slip Rahin)", l: 79.8, t: 45.8, f: 0.82, v: () => "" },
   {
     k: "s_keterangan",
     label: "Marhun (Slip Custody)",
@@ -127,5 +127,5 @@ export const ISIAN_SBR: SbrFieldOverlay[] = [
   { k: "r_marhun", label: "Marhun Bih (Slip Rahin)", l: 83.6, t: 76.9, f: 0.9, v: (t) => fmtAngka(t.marhunBih) },
   { k: "s_jatuh", label: "Jatuh Tempo (Slip Custody)", l: 56.5, t: 84.0, f: 0.85, v: (t) => t.tanggalJatuhTempo },
   { k: "r_jatuh", label: "Jatuh Tempo (Slip Rahin)", l: 77.3, t: 84.0, f: 0.82, v: (t) => t.tanggalJatuhTempo },
-  { k: "ttd", label: "TTD Penaksir", l: 9.56, t: 84.09, f: 0.8, v: (t) => t.petugasPenaksir },
+  { k: "ttd", label: "TTD Penaksir", l: 9.56, t: 84.09, f: 0.8, v: () => "" },
 ];

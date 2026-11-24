@@ -17,6 +17,7 @@ import {
   LogOut,
   FileCheck2,
   X,
+  Menu,
   ArrowRight,
   CheckCircle2 as CheckCircleIcon,
 } from "lucide-react";
@@ -125,9 +126,10 @@ interface AppNotificationItem {
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
   const [clockText, setClockText] = useState("Jumat, 16 Okt 2026 · 10:45 WIB");
   const [notifOpen, setNotifOpen] = useState(false);
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [notifCount, setNotifCount] = useState(0);
   const [notifItems, setNotifItems] = useState<AppNotificationItem[]>([]);
 
@@ -205,6 +207,20 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     };
   }, [user.role, user.branch, user.name, pathname]);
 
+  useEffect(() => {
+    if (!user.username) return;
+    const sendHeartbeat = () => {
+      void fetch("/api/auth/heartbeat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username: user.username }),
+      }).catch(() => {});
+    };
+    sendHeartbeat();
+    const timer = setInterval(sendHeartbeat, 60_000);
+    return () => clearInterval(timer);
+  }, [user.username]);
+
   const currentNav =
     NAV_ITEMS.find((it) => pathname === it.href || pathname.startsWith(it.href + "/")) ||
     NAV_ITEMS[0];
@@ -213,24 +229,46 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="min-h-screen flex bg-[#F6F7F5] text-[#1B2420]">
+      {/* MOBILE DRAWER BACKDROP */}
+      {mobileNavOpen && (
+        <div
+          onClick={() => setMobileNavOpen(false)}
+          className="fixed inset-0 z-30 bg-black/50 backdrop-blur-xs lg:hidden noprint"
+        />
+      )}
+
       {/* SIDEBAR NAVIGATION (EMERALD DARK #084530) */}
-      <aside className="w-[252px] shrink-0 bg-[#084530] text-white flex flex-col sticky top-0 h-screen noprint border-r border-[#0B5D3B]/40 shadow-lg">
+      <aside
+        className={`w-[252px] shrink-0 bg-[#084530] text-white flex flex-col fixed inset-y-0 left-0 z-40 h-screen noprint border-r border-[#0B5D3B]/40 shadow-lg transition-transform duration-200 lg:sticky lg:top-0 lg:translate-x-0 ${
+          mobileNavOpen ? "translate-x-0" : "-translate-x-full"
+        }`}
+      >
         {/* Brand Block (64px height) */}
-        <div className="h-16 px-4 border-b border-white/10 flex items-center gap-3 bg-[#063525]">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src="/logo-mitra-syariah-icon.png"
-            alt="Bank Mitra Syariah"
-            className="w-9 h-9 object-contain shrink-0 drop-shadow-[0_1px_3px_rgba(255,255,255,0.25)]"
-          />
-          <div className="leading-tight">
-            <span className="block font-extrabold text-[14px] tracking-tight text-white">
-              ONE STOP GADAI
-            </span>
-            <span className="block text-[11px] text-[#FBF3D6]/80 font-medium">
-              Bank Mitra Syariah
-            </span>
+        <div className="h-16 px-4 border-b border-white/10 flex items-center justify-between gap-2 bg-[#063525]">
+          <div className="flex items-center gap-3 min-w-0">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/logo-mitra-syariah-icon.png"
+              alt="Bank Mitra Syariah"
+              className="w-9 h-9 object-contain shrink-0 drop-shadow-[0_1px_3px_rgba(255,255,255,0.25)]"
+            />
+            <div className="leading-tight min-w-0">
+              <span className="block font-extrabold text-[14px] tracking-tight text-white truncate">
+                ONE STOP GADAI
+              </span>
+              <span className="block text-[11px] text-[#FBF3D6]/80 font-medium truncate">
+                Bank Mitra Syariah
+              </span>
+            </div>
           </div>
+          <button
+            type="button"
+            onClick={() => setMobileNavOpen(false)}
+            aria-label="Tutup menu"
+            className="lg:hidden p-1.5 rounded-lg text-white/75 hover:text-white hover:bg-white/10 cursor-pointer"
+          >
+            <X className="w-4 h-4" />
+          </button>
         </div>
 
         {/* Navigation Links */}
@@ -243,6 +281,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               <Link
                 key={item.id}
                 href={item.href}
+                onClick={() => setMobileNavOpen(false)}
                 className={`relative flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-[13px] transition-all cursor-pointer ${
                   isActive
                     ? "bg-[#0B5D3B] text-white font-bold shadow-xs border border-white/15"
@@ -286,7 +325,15 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
           <button
             type="button"
-            onClick={() => router.push("/login")}
+            onClick={() => {
+              void fetch("/api/auth/heartbeat", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ username: user.username, offline: true }),
+              }).catch(() => {});
+              logout();
+              router.push("/login");
+            }}
             className="w-full h-9 rounded-lg bg-white/10 hover:bg-[#C62828] text-white text-xs font-semibold flex items-center justify-center gap-2 transition-colors cursor-pointer border border-white/10"
           >
             <LogOut className="w-3.5 h-3.5" />
@@ -298,15 +345,25 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       {/* MAIN CONTENT AREA */}
       <div className="flex-1 flex flex-col min-w-0">
         {/* TOPBAR NAVIGATION (EMERALD PEKAT #0B5D3B DENGAN AKSEN EMAS) */}
-        <header className="h-16 bg-[#0B5D3B] text-white border-b-2 border-[#C9A227] px-6 flex items-center justify-between sticky top-0 z-20 noprint shadow-md">
-          {/* Breadcrumb & Title */}
-          <div>
-            <p className="text-[11px] text-[#FBF3D6]/90 font-medium">
-              Operasional / {currentNav.label}
-            </p>
-            <h1 className="text-base font-bold text-white leading-snug">
-              {currentNav.label}
-            </h1>
+        <header className="h-16 bg-[#0B5D3B] text-white border-b-2 border-[#C9A227] px-4 sm:px-6 flex items-center justify-between gap-3 sticky top-0 z-20 noprint shadow-md">
+          {/* Mobile Hamburger + Breadcrumb & Title */}
+          <div className="flex items-center gap-3 min-w-0">
+            <button
+              type="button"
+              onClick={() => setMobileNavOpen(true)}
+              aria-label="Buka menu navigasi"
+              className="lg:hidden w-9 h-9 rounded-lg bg-white/10 hover:bg-white/20 border border-white/15 flex items-center justify-center text-white shrink-0 cursor-pointer"
+            >
+              <Menu className="w-4 h-4" />
+            </button>
+            <div className="min-w-0">
+              <p className="text-[11px] text-[#FBF3D6]/90 font-medium truncate">
+                Operasional / {currentNav.label}
+              </p>
+              <h1 className="text-sm sm:text-base font-bold text-white leading-snug truncate">
+                {currentNav.label}
+              </h1>
+            </div>
           </div>
 
           {/* Right Status */}
@@ -336,7 +393,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               </button>
 
               {notifOpen && (
-                <div className="absolute right-0 mt-2.5 w-80 sm:w-96 bg-white text-[#1B2420] rounded-2xl border border-[#E1E5E2] shadow-2xl overflow-hidden z-50">
+                <div className="absolute right-0 mt-2.5 w-[calc(100vw-2rem)] sm:w-96 max-w-sm bg-white text-[#1B2420] rounded-2xl border border-[#E1E5E2] shadow-2xl overflow-hidden z-50">
                   <div className="px-4 py-3 bg-[#084530] text-white flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <Bell className="w-4 h-4 text-[#C9A227]" />
@@ -423,7 +480,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </header>
 
         {/* PAGE VIEWPORT */}
-        <main className="flex-1 p-6 lg:p-8 max-w-[1240px] w-full mx-auto print:p-0 print:max-w-none print:m-0">
+        <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-[1240px] w-full mx-auto print:p-0 print:max-w-none print:m-0">
           {children}
         </main>
       </div>

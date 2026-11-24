@@ -18,6 +18,7 @@ import {
   X,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
+import { CatatNomorModal, ConfirmNasabahMonitoringModal } from "./monitoring-modals";
 
 export interface MonitoringTransaksiItem {
   sbr: string;
@@ -28,6 +29,8 @@ export interface MonitoringTransaksiItem {
   alamat: string;
   noRek?: string | null;
   noKontrak?: string | null;
+  noAkad?: string | null;
+  noSbg?: string | null;
   totalBeratKotor: number;
   totalBeratBersih: number;
   totalTaksiran: number;
@@ -62,6 +65,7 @@ export function MonitoringClient({ initialTransaksi }: { initialTransaksi: Monit
   const [searchQuery, setSearchQuery] = useState("");
   const [filterStatus, setFilterStatus] = useState("ALL");
   const [confirmModalTx, setConfirmModalTx] = useState<MonitoringTransaksiItem | null>(null);
+  const [catatNomorTx, setCatatNomorTx] = useState<MonitoringTransaksiItem | null>(null);
   const [actionModal, setActionModal] = useState<{
     type: "DELETE_DRAFT" | "SUBMIT_DRAFT" | "CANCEL_SUBMISSION";
     sbr: string;
@@ -263,6 +267,49 @@ export function MonitoringClient({ initialTransaksi }: { initialTransaksi: Monit
     }
   };
 
+  const handleMarkSbrRecorded = async (sbr: string) => {
+    setLoadingSbr(sbr);
+    setActionFeedback(null);
+    try {
+      const res = await fetch("/api/transaksi", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          sbr,
+          action: "MARK_SBR_RECORDED",
+          user: user?.name || "Ahmad Hidayat",
+        }),
+      });
+      const data = await res.json();
+      if (!data.success) {
+        setActionFeedback({ type: "error", msg: data.error || "Gagal memperbarui status SBR." });
+        return;
+      }
+      const updatedList = transaksiList.map((t) =>
+        t.sbr === sbr ? { ...t, status: "Tercetak" } : t
+      );
+      setTransaksiList(updatedList);
+      const nextReady = updatedList.find(
+        (t) =>
+          t.status === "Siap Cetak" &&
+          (t.noAkad || t.noSbg || t.noKontrak) &&
+          (user?.role === "PENAKSIR"
+            ? t.kantor === user.branch && t.petugasPenaksir === user.name
+            : true)
+      );
+      setCatatNomorTx(nextReady || null);
+      setActionFeedback({
+        type: "success",
+        msg: `Nomor legalitas berkas ${sbr} ditandai sudah dicatat di SBR (status: Tercetak).`,
+      });
+      refreshNotif();
+    } catch {
+      setActionFeedback({ type: "error", msg: "Terjadi kesalahan jaringan." });
+    } finally {
+      setLoadingSbr(null);
+    }
+  };
+
   const filtered = transaksiList.filter((t) => {
     const matchPenaksirScope =
       user?.role === "PENAKSIR"
@@ -363,82 +410,12 @@ export function MonitoringClient({ initialTransaksi }: { initialTransaksi: Monit
       )}
 
       {/* MODAL PEMBACAAN PUTUSAN PEMUTUS KE NASABAH */}
-      {confirmModalTx && (
-        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="w-full max-w-lg bg-white rounded-2xl p-6 shadow-2xl border border-[#E1E5E2]">
-            <div className="flex items-start justify-between gap-3 pb-3 border-b border-[#E1E5E2]">
-              <div>
-                <span className="text-[11px] font-bold uppercase tracking-wider text-[#0B5D3B]">
-                  Konfirmasi Putusan ke Nasabah
-                </span>
-                <h3 className="text-base font-extrabold text-[#1B2420] mt-0.5">
-                  {confirmModalTx.nama} · <span className="font-mono text-[#084530]">{confirmModalTx.sbr}</span>
-                </h3>
-              </div>
-              <button
-                type="button"
-                onClick={() => setConfirmModalTx(null)}
-                className="text-[#5F6B65] hover:text-[#1B2420] cursor-pointer"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            <div className="my-4 p-4 rounded-xl bg-[#F6F7F5] border border-[#E1E5E2] space-y-2 text-xs">
-              <div className="flex justify-between">
-                <span className="text-[#5F6B65]">Total Taksiran Emas:</span>
-                <span className="font-bold text-[#1B2420] num">{fmtRp(confirmModalTx.totalTaksiran)}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-[#5F6B65]">Uang Pinjaman Disetujui (UP):</span>
-                <span className="font-extrabold text-[#0B5D3B] num text-sm">{fmtRp(confirmModalTx.marhunBih)}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-[#5F6B65]">Ujroh 4 Bulan (120 Hari):</span>
-                <span className="font-bold text-[#1B2420] num">{fmtRp(confirmModalTx.ujroh)}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-[#5F6B65]">Biaya Administrasi:</span>
-                <span className="font-bold text-[#1B2420] num">{fmtRp(confirmModalTx.biayaAdmin)}</span>
-              </div>
-              <div className="flex justify-between pt-2 border-t border-[#E1E5E2]">
-                <span className="font-bold text-[#084530]">Nominal Bersih Diterima Nasabah:</span>
-                <span className="font-extrabold text-[#084530] num text-sm">{fmtRp(confirmModalTx.nominalBersih)}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-[#5F6B65]">Tanggal Jatuh Tempo:</span>
-                <span className="font-bold text-[#1B2420]">{confirmModalTx.tanggalJatuhTempo}</span>
-              </div>
-            </div>
-
-            {confirmModalTx.catatan && (
-              <div className="mb-4 p-3 rounded-xl bg-[#E6F2EC]/60 border border-[#0B5D3B]/20 text-xs text-[#084530]">
-                <b>Catatan Pemutus:</b> {confirmModalTx.catatan}
-              </div>
-            )}
-
-            <div className="flex flex-col sm:flex-row justify-end gap-2">
-              <button
-                type="button"
-                disabled={loadingSbr === confirmModalTx.sbr}
-                onClick={() => handleConfirmNasabah(confirmModalTx.sbr, false)}
-                className="h-10 px-4 rounded-xl border border-[#C62828] text-[#C62828] hover:bg-[#FDECEA] text-xs font-bold cursor-pointer disabled:opacity-50"
-              >
-                Nasabah Tolak / Batal
-              </button>
-              <button
-                type="button"
-                disabled={loadingSbr === confirmModalTx.sbr}
-                onClick={() => handleConfirmNasabah(confirmModalTx.sbr, true)}
-                className="h-10 px-5 rounded-xl bg-[#0B5D3B] hover:bg-[#084530] text-white text-xs font-extrabold inline-flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
-              >
-                <CheckCircle2 className="w-4 h-4" />
-                Nasabah Setuju → Teruskan ke Back Office
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <ConfirmNasabahMonitoringModal
+        tx={confirmModalTx}
+        loadingSbr={loadingSbr}
+        onClose={() => setConfirmModalTx(null)}
+        onConfirm={handleConfirmNasabah}
+      />
 
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
@@ -505,11 +482,48 @@ export function MonitoringClient({ initialTransaksi }: { initialTransaksi: Monit
                   : "bg-[#F6F7F5] text-[#5F6B65] hover:text-[#1B2420] border border-[#E1E5E2]"
               }`}
             >
-              {st === "ALL" ? "Semua Status" : st}
+              {st === "ALL" ? "Semua Status" : st === "Siap Cetak" ? "Catat Nomor SBR" : st}
             </button>
           ))}
         </div>
       </div>
+
+      {/* NOTIFIKASI RINGKAS 1 BARIS: NOMOR LEGALITAS BARU DARI BACK OFFICE */}
+      {(user?.role === "PENAKSIR" || user?.role === "ADMIN_IT") && (() => {
+        const readyNumbers = filtered.filter(
+          (t) => t.status === "Siap Cetak" && (t.noAkad || t.noSbg || t.noKontrak)
+        );
+        if (readyNumbers.length === 0) return null;
+        return (
+          <div className="mt-4 px-4 py-3 rounded-xl bg-[#E6F2EC] border border-[#0B5D3B]/30 flex flex-wrap items-center justify-between gap-3">
+            <p className="text-xs font-bold text-[#084530] flex items-center gap-2">
+              <CheckCircle2 className="w-4 h-4 text-[#0B5D3B] shrink-0" />
+              <span>
+                Ada <b>{readyNumbers.length} berkas</b> dengan nomor legalitas baru dari Back Office yang siap dicatat ke kertas SBR.
+              </span>
+            </p>
+            <button
+              type="button"
+              onClick={() => setCatatNomorTx(readyNumbers[0])}
+              className="h-8 px-3.5 rounded-lg bg-[#0B5D3B] hover:bg-[#084530] text-white text-xs font-bold cursor-pointer shrink-0"
+            >
+              Lihat &amp; Catat Nomor SBR
+            </button>
+          </div>
+        );
+      })()}
+
+      {/* CARD MODAL KHUSUS: CATAT NOMOR LEGALITAS KE KERTAS SBR */}
+      <CatatNomorModal
+        tx={catatNomorTx}
+        readyNumbers={filtered.filter(
+          (t) => t.status === "Siap Cetak" && (t.noAkad || t.noSbg || t.noKontrak)
+        )}
+        loadingSbr={loadingSbr}
+        onSelectTx={setCatatNomorTx}
+        onClose={() => setCatatNomorTx(null)}
+        onMarkRecorded={handleMarkSbrRecorded}
+      />
 
       {/* TABEL MONITORING */}
       {actionFeedback && (
@@ -542,38 +556,45 @@ export function MonitoringClient({ initialTransaksi }: { initialTransaksi: Monit
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse text-xs">
             <thead>
-              <tr className="bg-[#F6F7F5] border-b border-[#E1E5E2] text-[11px] font-bold uppercase text-[#5F6B65] tracking-wider">
-                <th className="py-3 px-6">No. SBR</th>
-                <th className="py-3 px-4">Nama Nasabah</th>
-                <th className="py-3 px-4">Barang &amp; Berat</th>
-                <th className="py-3 px-4 text-right">Nilai Taksiran</th>
-                <th className="py-3 px-4 text-right">Marhun Bih</th>
-                <th className="py-3 px-4">Tgl Akad</th>
-                <th className="py-3 px-4">Status</th>
-                <th className="py-3 px-6 text-right">Tindakan</th>
+              <tr className="bg-[#F6F7F5] border-b border-[#E1E5E2] text-[11px] font-bold uppercase text-[#5F6B65] tracking-wider whitespace-nowrap">
+                <th className="py-3 px-4">No. SBR</th>
+                <th className="py-3 px-3">Nama Nasabah</th>
+                <th className="py-3 px-3">Barang &amp; Berat</th>
+                <th className="py-3 px-3 text-right">Nilai Taksiran</th>
+                <th className="py-3 px-3 text-right">Marhun Bih</th>
+                <th className="py-3 px-3">Tgl Akad</th>
+                <th className="py-3 px-3">Status</th>
+                <th className="py-3 px-4 text-right">Tindakan</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[#E1E5E2]">
               {filtered.map((t) => (
                 <tr key={t.sbr} className="hover:bg-[#E6F2EC]/40 transition-colors">
-                  <td className="py-3.5 px-6 font-bold text-[#1B2420] num">{t.sbr}</td>
-                  <td className="py-3.5 px-4">
-                    <p className="font-bold text-[#1B2420]">{t.nama}</p>
+                  <td className="py-3 px-4 font-bold text-[#1B2420] num whitespace-nowrap">
+                    <p>{t.sbr}</p>
+                    {t.noAkad && (
+                      <p className="text-[10px] font-mono font-semibold text-[#084530] mt-0.5">
+                        {t.noAkad}
+                      </p>
+                    )}
+                  </td>
+                  <td className="py-3 px-3 min-w-[140px]">
+                    <p className="font-bold text-[#1B2420] truncate max-w-[180px]">{t.nama}</p>
                     <p className="text-[11px] text-[#5F6B65] num">{t.cif || "Nasabah Baru"}</p>
                   </td>
-                  <td className="py-3.5 px-4 font-medium text-[#1B2420]">
+                  <td className="py-3 px-3 font-medium text-[#1B2420] whitespace-nowrap">
                     {t.barang?.length || 1} item · {fmtBerat(t.totalBeratBersih)}
                   </td>
-                  <td className="py-3.5 px-4 text-right font-semibold text-[#1B2420] num">
+                  <td className="py-3 px-3 text-right font-semibold text-[#1B2420] num whitespace-nowrap">
                     {fmtRp(t.totalTaksiran)}
                   </td>
-                  <td className="py-3.5 px-4 text-right font-extrabold text-[#0B5D3B] num">
+                  <td className="py-3 px-3 text-right font-extrabold text-[#0B5D3B] num whitespace-nowrap">
                     {fmtRp(t.marhunBih)}
                   </td>
-                  <td className="py-3.5 px-4 text-[#5F6B65]">{t.tanggalAkad}</td>
-                  <td className="py-3.5 px-4">
+                  <td className="py-3 px-3 text-[#5F6B65] whitespace-nowrap">{t.tanggalAkad}</td>
+                  <td className="py-3 px-3 whitespace-nowrap">
                     <span
-                      className={`inline-flex px-2.5 py-0.5 rounded-full text-[11px] font-bold ${
+                      className={`inline-flex px-2.5 py-0.5 rounded-full text-[11px] font-bold whitespace-nowrap ${
                         t.status === "Draft"
                           ? "bg-[#ECEFED] text-[#5F6B65]"
                           : t.status === "Menunggu Pemutus"
@@ -585,11 +606,11 @@ export function MonitoringClient({ initialTransaksi }: { initialTransaksi: Monit
                           : "bg-[#E0F2F1] text-[#00695C]"
                       }`}
                     >
-                      {t.status}
+                      {t.status === "Siap Cetak" ? "Catat Nomor SBR" : t.status}
                     </span>
                   </td>
-                  <td className="py-3.5 px-6 text-right">
-                    <div className="flex items-center justify-end gap-1.5">
+                  <td className="py-3 px-4 text-right whitespace-nowrap">
+                    <div className="flex items-center justify-end gap-1.5 whitespace-nowrap">
                       {/* Opsi Khusus Status Draft (Penaksir / Admin IT) */}
                       {t.status === "Draft" && (user?.role === "PENAKSIR" || user?.role === "ADMIN_IT") && (
                         <>
@@ -627,16 +648,37 @@ export function MonitoringClient({ initialTransaksi }: { initialTransaksi: Monit
                         </button>
                       )}
 
-                      {/* Opsi Konfirmasi Nasabah setelah Disetujui Pemutus */}
+                      {/* Opsi Cetak SBR & Kirim ke Back Office setelah Disetujui Pemutus */}
                       {t.status === "Disetujui Pemutus" && (user?.role === "PENAKSIR" || user?.role === "ADMIN_IT") && (
+                        <>
+                          <Link
+                            href={`/cetak?sbr=${encodeURIComponent(t.sbr)}`}
+                            title="Cetak SBR untuk ditandatangani nasabah"
+                            className="inline-flex items-center gap-1 h-7 px-2.5 rounded-lg border border-[#0B5D3B] text-[#0B5D3B] hover:bg-[#E6F2EC] font-bold text-[11px] transition-colors"
+                          >
+                            <Printer className="w-3 h-3" /> Cetak SBR
+                          </Link>
+                          <button
+                            type="button"
+                            disabled={loadingSbr === t.sbr}
+                            onClick={() => setConfirmModalTx(t)}
+                            title="SBR sudah ditandatangani nasabah, kirim ke Back Office"
+                            className="inline-flex items-center gap-1 h-7 px-2.5 rounded-lg bg-[#0B5D3B] hover:bg-[#084530] text-white font-bold text-[11px] transition-colors cursor-pointer"
+                          >
+                            <CheckCircle2 className="w-3 h-3" /> Sudah TTD → Ke BO
+                          </button>
+                        </>
+                      )}
+
+                      {/* Opsi Catat Nomor SBR setelah Back Office terbitkan No. Akad/SBG/Kontrak */}
+                      {t.status === "Siap Cetak" && (user?.role === "PENAKSIR" || user?.role === "ADMIN_IT") && (
                         <button
                           type="button"
-                          disabled={loadingSbr === t.sbr}
-                          onClick={() => setConfirmModalTx(t)}
-                          title="Bacakan Putusan & Konfirmasi Persetujuan Nasabah"
+                          onClick={() => setCatatNomorTx(t)}
+                          title="Lihat & catat No. Akad, SBG, Kontrak ke kertas SBR"
                           className="inline-flex items-center gap-1 h-7 px-2.5 rounded-lg bg-[#0B5D3B] hover:bg-[#084530] text-white font-bold text-[11px] transition-colors cursor-pointer"
                         >
-                          <CheckCircle2 className="w-3 h-3" /> Konfirmasi Nasabah
+                          <CheckCircle2 className="w-3 h-3" /> Catat Nomor
                         </button>
                       )}
 

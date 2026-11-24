@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { notifyNasabahWa } from "@/lib/wa-notifier";
 
 export async function POST(request: Request) {
   try {
@@ -69,14 +68,6 @@ export async function POST(request: Request) {
         return updatedTx;
       });
 
-      void notifyNasabahWa({
-        event: "PEMUTUS_APPROVED",
-        sbr: updated.sbr,
-        nama: updated.nama,
-        hp: updated.hp,
-        marhunBih: updated.marhunBih,
-      });
-
       return NextResponse.json({ success: true, data: updated });
     } else if (action === "REJECT") {
       const reason = (batalAlasan || catatan || "").trim();
@@ -107,14 +98,6 @@ export async function POST(request: Request) {
         });
 
         return updatedTx;
-      });
-
-      void notifyNasabahWa({
-        event: "TRANSAKSI_REJECTED",
-        sbr: updated.sbr,
-        nama: updated.nama,
-        hp: updated.hp,
-        alasan: reason,
       });
 
       return NextResponse.json({ success: true, data: updated });

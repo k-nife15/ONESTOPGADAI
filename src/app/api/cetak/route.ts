@@ -24,11 +24,12 @@ export async function POST(request: Request) {
       );
     }
 
-    if (tx.status !== "Siap Cetak" && tx.status !== "Tercetak") {
+    const isPreSignPrint = tx.status === "Disetujui Pemutus";
+    if (!isPreSignPrint && tx.status !== "Siap Cetak" && tx.status !== "Tercetak") {
       return NextResponse.json(
         {
           success: false,
-          error: `Dokumen hanya dapat dicetak jika berstatus Siap Cetak atau Tercetak (status saat ini: ${tx.status}).`,
+          error: `Dokumen hanya dapat dicetak jika berstatus Disetujui Pemutus, Siap Cetak, atau Tercetak (status saat ini: ${tx.status}).`,
         },
         { status: 400 }
       );
@@ -37,16 +38,17 @@ export async function POST(request: Request) {
     const isReprint = tx.status === "Tercetak";
 
     const updated = await prisma.$transaction(async (db) => {
-      const nextTx = isReprint
-        ? tx
-        : await db.transaksiRahn.update({
-            where: { sbr },
-            data: { status: "Tercetak" },
-          });
+      const nextTx =
+        isReprint || isPreSignPrint
+          ? tx
+          : await db.transaksiRahn.update({
+              where: { sbr },
+              data: { status: "Tercetak" },
+            });
 
       // Jika transaksi ini menggantikan akad lama (Topup / Perpanjangan / Tebus Sebagian / Turun Plafon),
       // tutup akad lama menjadi Lunas saat akad baru resmi dicetak.
-      if (!isReprint && tx.akadAsal) {
+      if (!isReprint && !isPreSignPrint && tx.akadAsal) {
         const oldTx = await db.transaksiRahn.findUnique({
           where: { sbr: tx.akadAsal },
         });
@@ -71,9 +73,19 @@ export async function POST(request: Request) {
         data: {
           user: user || "Petugas Loket",
           role: role || "PENAKSIR",
-          action: isReprint ? "Cetak Ulang Dokumen" : "Cetak Dokumen Resmi",
+          action: isPreSignPrint
+            ? "Cetak SBR (Pra-TTD Nasabah)"
+            : isReprint
+            ? "Cetak Ulang Dokumen"
+            : "Cetak Dokumen Resmi",
           refId: sbr,
-          notes: `${isReprint ? "Cetak ulang" : "Cetak perdana"} dokumen ${dokumen} untuk berkas ${sbr}.`,
+          notes: `${
+            isPreSignPrint
+              ? "Cetak SBR untuk ditandatangani nasabah"
+              : isReprint
+              ? "Cetak ulang"
+              : "Cetak perdana"
+          } dokumen ${dokumen} untuk berkas ${sbr}.`,
         },
       });
 

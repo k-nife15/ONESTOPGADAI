@@ -64,12 +64,17 @@ export async function POST(request: Request) {
       );
     }
 
-    // Generate No. CIF resmi 8 Digit (contoh: 01010388)
-    const count = await prisma.nasabah.count();
-    const nextSeq = String(count + 393).padStart(4, "0");
-    const newCif = `0101${nextSeq}`;
+    // Generate No. CIF resmi 8 Digit unik (contoh: 01010388)
+    const existingRows = await prisma.nasabah.findMany({ select: { cif: true } });
+    const existingCifSet = new Set(existingRows.map((r) => r.cif));
+    let seqNum = existingRows.length + 393;
+    let newCif = `0101${String(seqNum).padStart(4, "0")}`;
+    while (existingCifSet.has(newCif)) {
+      seqNum += 1;
+      newCif = `0101${String(seqNum).padStart(4, "0")}`;
+    }
     // Generate No. Kontrak permanen 10 Digit CBS (contoh: 4420101123)
-    const newNoKontrak = `4420101${String(count + 128).padStart(3, "0")}`;
+    const newNoKontrak = `4420101${String(seqNum - 265).padStart(3, "0")}`;
 
     const created = await prisma.$transaction(async (db) => {
       const newNasabah = await db.nasabah.create({
