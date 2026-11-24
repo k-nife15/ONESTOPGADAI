@@ -227,6 +227,16 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   const visibleMenu = NAV_ITEMS.filter((it) => it.roles.includes(user.role));
 
+  const handleLogout = () => {
+    void fetch("/api/auth/heartbeat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ username: user.username, offline: true }),
+    }).catch(() => {});
+    logout();
+    router.push("/login");
+  };
+
   return (
     <div className="min-h-screen flex bg-[#F6F7F5] text-[#1B2420]">
       {/* MOBILE DRAWER BACKDROP */}
@@ -239,12 +249,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
       {/* SIDEBAR NAVIGATION (EMERALD DARK #084530) */}
       <aside
-        className={`w-[252px] shrink-0 bg-[#084530] text-white flex flex-col fixed inset-y-0 left-0 z-40 h-screen noprint border-r border-[#0B5D3B]/40 shadow-lg transition-transform duration-200 lg:sticky lg:top-0 lg:translate-x-0 ${
+        className={`w-[252px] shrink-0 bg-[#084530] text-white flex flex-col fixed inset-y-0 left-0 z-40 h-dvh max-h-dvh overflow-hidden noprint border-r border-[#0B5D3B]/40 shadow-lg transition-transform duration-200 lg:sticky lg:top-0 lg:translate-x-0 ${
           mobileNavOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >
         {/* Brand Block (64px height) */}
-        <div className="h-16 px-4 border-b border-white/10 flex items-center justify-between gap-2 bg-[#063525]">
+        <div className="h-16 shrink-0 px-4 border-b border-white/10 flex items-center justify-between gap-2 bg-[#063525]">
           <div className="flex items-center gap-3 min-w-0">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
@@ -272,7 +282,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </div>
 
         {/* Navigation Links */}
-        <nav className="flex-1 p-3 space-y-1.5 overflow-y-auto">
+        <nav className="flex-1 min-h-0 p-3 space-y-1.5 overflow-y-auto">
           {visibleMenu.map((item) => {
             const Icon = item.icon;
             const isActive =
@@ -303,7 +313,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </nav>
 
         {/* Bottom User Profile & Logout */}
-        <div className="p-3 border-t border-white/10 space-y-2.5 bg-[#063525]/60">
+        <div className="shrink-0 p-3 border-t border-white/10 space-y-2.5 bg-[#063525]/60">
           <div className="rounded-xl bg-white/10 border border-white/15 p-3">
             <div className="flex items-center gap-2.5">
               <div className="w-9 h-9 rounded-full bg-[#C9A227] text-[#084530] flex items-center justify-center font-extrabold text-xs shrink-0 shadow-sm">
@@ -325,15 +335,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
           <button
             type="button"
-            onClick={() => {
-              void fetch("/api/auth/heartbeat", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ username: user.username, offline: true }),
-              }).catch(() => {});
-              logout();
-              router.push("/login");
-            }}
+            onClick={handleLogout}
             className="w-full h-9 rounded-lg bg-white/10 hover:bg-[#C62828] text-white text-xs font-semibold flex items-center justify-center gap-2 transition-colors cursor-pointer border border-white/10"
           >
             <LogOut className="w-3.5 h-3.5" />
@@ -367,7 +369,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </div>
 
           {/* Right Status */}
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2.5 sm:gap-4">
             <span className="hidden xl:inline-block text-xs text-white/80 font-medium num bg-white/10 px-3 py-1 rounded-full border border-white/15">
               {clockText}
             </span>
@@ -375,6 +377,17 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <span className="hidden md:inline-flex items-center px-3 py-1 rounded-full bg-white/15 border border-white/20 text-xs font-semibold text-white">
               {user.branch}
             </span>
+
+            {/* Mobile Quick Logout Button */}
+            <button
+              type="button"
+              onClick={handleLogout}
+              aria-label="Keluar Sistem"
+              title="Keluar Sistem"
+              className="lg:hidden w-9 h-9 rounded-lg bg-white/10 hover:bg-[#C62828] border border-white/15 flex items-center justify-center text-white cursor-pointer transition-colors"
+            >
+              <LogOut className="w-4 h-4" />
+            </button>
 
             {/* Notification Bell & Popover */}
             <div className="relative">

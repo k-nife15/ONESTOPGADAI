@@ -17,6 +17,9 @@ import {
   X,
   Edit3,
   ShieldCheck,
+  CheckCircle2,
+  AlertCircle,
+  Loader2,
 } from "lucide-react";
 
 interface TransaksiMini {
@@ -34,8 +37,13 @@ interface NasabahWithTrx {
   hp: string;
   alamat: string;
   noRek: string | null;
-  pekerjaan: string | null;
   transaksi: TransaksiMini[];
+}
+
+interface WaCheckState {
+  status: "idle" | "checking" | "verified" | "invalid" | "error";
+  checkedPhone?: string;
+  message?: string;
 }
 
 export function NasabahClient({ initialNasabah }: { initialNasabah: NasabahWithTrx[] }) {
@@ -51,6 +59,8 @@ export function NasabahClient({ initialNasabah }: { initialNasabah: NasabahWithT
   const [isEditMode, setIsEditMode] = useState(false);
   const [formError, setFormError] = useState("");
   const [isSaving, setIsSaving] = useState(false);
+  const [initialHp, setInitialHp] = useState("");
+  const [waCheck, setWaCheck] = useState<WaCheckState>({ status: "idle" });
 
   // Form State
   const [formData, setFormData] = useState({
@@ -60,7 +70,6 @@ export function NasabahClient({ initialNasabah }: { initialNasabah: NasabahWithT
     hp: "",
     alamat: "",
     noRek: "",
-    pekerjaan: "",
   });
 
   const canEditNasabah = user.role === "PENAKSIR" || user.role === "ADMIN_IT";
@@ -77,6 +86,8 @@ export function NasabahClient({ initialNasabah }: { initialNasabah: NasabahWithT
   const openEditModal = (n: NasabahWithTrx) => {
     setIsEditMode(true);
     setFormError("");
+    setInitialHp(n.hp || "");
+    setWaCheck({ status: "idle" });
     setFormData({
       cif: n.cif,
       nama: n.nama,
@@ -84,13 +95,71 @@ export function NasabahClient({ initialNasabah }: { initialNasabah: NasabahWithT
       hp: n.hp,
       alamat: n.alamat,
       noRek: n.noRek || "",
-      pekerjaan: n.pekerjaan || "",
     });
     setIsModalOpen(true);
   };
 
+  const trimmedHp = formData.hp.trim();
+  const requiresWaVerification =
+    !isEditMode || initialHp.trim() === "" || trimmedHp !== initialHp.trim();
+  const isWaVerifiedForCurrentHp =
+    waCheck.status === "verified" && waCheck.checkedPhone === trimmedHp;
+  const canSubmitForm = !isSaving && (!requiresWaVerification || isWaVerifiedForCurrentHp);
+
+  const handleVerifyWa = async () => {
+    const phone = formData.hp.trim();
+    if (!phone) {
+      setWaCheck({ status: "invalid", message: "Isi nomor WhatsApp terlebih dahulu." });
+      return;
+    }
+
+    setWaCheck({ status: "checking", checkedPhone: phone });
+    setFormError("");
+    try {
+      const res = await fetch("/api/wa/check", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phone }),
+      });
+      const data = await res.json();
+
+      if (!res.ok || !data.success) {
+        setWaCheck({
+          status: "error",
+          checkedPhone: phone,
+          message: data.error || "Gagal memverifikasi nomor ke gateway WhatsApp.",
+        });
+        return;
+      }
+
+      if (data.registered) {
+        setWaCheck({
+          status: "verified",
+          checkedPhone: phone,
+          message: data.message || "Nomor terdaftar di WhatsApp.",
+        });
+      } else {
+        setWaCheck({
+          status: "invalid",
+          checkedPhone: phone,
+          message: data.message || "Nomor tidak terdaftar di WhatsApp.",
+        });
+      }
+    } catch {
+      setWaCheck({
+        status: "error",
+        checkedPhone: phone,
+        message: "Koneksi gagal saat mengecek nomor WhatsApp.",
+      });
+    }
+  };
+
   const handleSaveNasabah = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (requiresWaVerification && !isWaVerifiedForCurrentHp) {
+      setFormError("Silakan klik tombol Verifikasi WA dan pastikan nomor terdaftar di WhatsApp sebelum menyimpan.");
+      return;
+    }
     setFormError("");
     setIsSaving(true);
 
@@ -137,7 +206,7 @@ export function NasabahClient({ initialNasabah }: { initialNasabah: NasabahWithT
   };
 
   const exportCsv = () => {
-    const headers = ["No CIF", "NIK", "Nama Lengkap", "No HP", "Alamat", "No Rekening", "Pekerjaan"];
+    const headers = ["No CIF", "NIK", "Nama Lengkap", "No HP", "Alamat", "No Rekening"];
     const rows = nasabahList.map((n) => [
       n.cif,
       `'${n.nik}`,
@@ -145,7 +214,6 @@ export function NasabahClient({ initialNasabah }: { initialNasabah: NasabahWithT
       n.hp,
       `"${n.alamat}"`,
       n.noRek || "-",
-      n.pekerjaan || "-",
     ]);
     const csvContent = "data:text/csv;charset=utf-8," + [headers.join(","), ...rows.map((r) => r.join(","))].join("\n");
     const encodedUri = encodeURI(csvContent);
@@ -496,7 +564,7 @@ export function NasabahClient({ initialNasabah }: { initialNasabah: NasabahWithT
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block font-bold text-[#1B2420] mb-1">
                     No. KTP (NIK 16 Digit) <span className="text-[#C62828]">*</span>
@@ -516,14 +584,55 @@ export function NasabahClient({ initialNasabah }: { initialNasabah: NasabahWithT
                   <label className="block font-bold text-[#1B2420] mb-1">
                     Nomor WhatsApp / HP <span className="text-[#C62828]">*</span>
                   </label>
-                  <input
-                    type="text"
-                    required
-                    value={formData.hp}
-                    onChange={(e) => setFormData({ ...formData, hp: e.target.value })}
-                    placeholder="0812-3456-7890"
-                    className="w-full h-10 px-3 rounded-xl border border-[#E1E5E2] text-xs num focus:outline-none focus:border-[#0B5D3B]"
-                  />
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      required
+                      value={formData.hp}
+                      onChange={(e) => {
+                        const nextHp = e.target.value;
+                        setFormData({ ...formData, hp: nextHp });
+                        if (waCheck.checkedPhone !== nextHp.trim()) {
+                          setWaCheck({ status: "idle" });
+                        }
+                      }}
+                      placeholder="0812-3456-7890"
+                      className="flex-1 min-w-0 h-10 px-3 rounded-xl border border-[#E1E5E2] text-xs num focus:outline-none focus:border-[#0B5D3B]"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleVerifyWa}
+                      disabled={waCheck.status === "checking" || !trimmedHp}
+                      className="h-10 px-3 rounded-xl border border-[#0B5D3B] text-[#0B5D3B] hover:bg-[#E6F2EC] text-[11px] font-bold inline-flex items-center gap-1.5 shrink-0 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    >
+                      {waCheck.status === "checking" ? (
+                        <>
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          Cek...
+                        </>
+                      ) : (
+                        "Verifikasi WA"
+                      )}
+                    </button>
+                  </div>
+
+                  {waCheck.status === "verified" && (
+                    <p className="mt-1.5 text-[11px] font-semibold text-[#0B5D3B] flex items-center gap-1">
+                      <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
+                      <span>{waCheck.message}</span>
+                    </p>
+                  )}
+                  {(waCheck.status === "invalid" || waCheck.status === "error") && (
+                    <p className="mt-1.5 text-[11px] font-semibold text-[#C62828] flex items-center gap-1">
+                      <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                      <span>{waCheck.message}</span>
+                    </p>
+                  )}
+                  {requiresWaVerification && waCheck.status === "idle" && (
+                    <p className="mt-1.5 text-[11px] text-[#7A6110] font-medium">
+                      Wajib klik <b>Verifikasi WA</b> terlebih dahulu sebelum menyimpan.
+                    </p>
+                  )}
                 </div>
               </div>
 
@@ -541,31 +650,17 @@ export function NasabahClient({ initialNasabah }: { initialNasabah: NasabahWithT
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block font-bold text-[#1B2420] mb-1">
-                    No. Rekening Bank (Opsional)
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.noRek}
-                    onChange={(e) => setFormData({ ...formData, noRek: e.target.value })}
-                    placeholder="0034-556-7788 (BRI/BSI)"
-                    className="w-full h-10 px-3 rounded-xl border border-[#E1E5E2] text-xs num focus:outline-none focus:border-[#0B5D3B]"
-                  />
-                </div>
-                <div>
-                  <label className="block font-bold text-[#1B2420] mb-1">
-                    Pekerjaan / Bidang Usaha
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.pekerjaan}
-                    onChange={(e) => setFormData({ ...formData, pekerjaan: e.target.value })}
-                    placeholder="Pedagang / PNS / Swasta"
-                    className="w-full h-10 px-3 rounded-xl border border-[#E1E5E2] text-xs focus:outline-none focus:border-[#0B5D3B]"
-                  />
-                </div>
+              <div>
+                <label className="block font-bold text-[#1B2420] mb-1">
+                  No. Rekening Bank (Opsional)
+                </label>
+                <input
+                  type="text"
+                  value={formData.noRek}
+                  onChange={(e) => setFormData({ ...formData, noRek: e.target.value })}
+                  placeholder="0034-556-7788 (BRI/BSI)"
+                  className="w-full h-10 px-3 rounded-xl border border-[#E1E5E2] text-xs num focus:outline-none focus:border-[#0B5D3B]"
+                />
               </div>
 
               <div className="mt-6 flex justify-end gap-2 pt-4 border-t border-[#E1E5E2]">
@@ -578,8 +673,8 @@ export function NasabahClient({ initialNasabah }: { initialNasabah: NasabahWithT
                 </button>
                 <button
                   type="submit"
-                  disabled={isSaving}
-                  className="h-10 px-5 rounded-xl bg-[#0B5D3B] hover:bg-[#084530] text-white text-xs font-bold transition-colors cursor-pointer shadow-xs disabled:opacity-50"
+                  disabled={!canSubmitForm}
+                  className="h-10 px-5 rounded-xl bg-[#0B5D3B] hover:bg-[#084530] text-white text-xs font-bold transition-colors cursor-pointer shadow-xs disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {isSaving ? "Menyimpan..." : isEditMode ? "Simpan Perubahan" : "Terbitkan No. CIF"}
                 </button>

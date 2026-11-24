@@ -1,103 +1,97 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
-generator client {
-  provider = "prisma-client-js"
-}
-
 model User {
-  id           String   @id @default(uuid())
-  username     String   @unique
+  id           String    @id @default(uuid())
+  username     String    @unique
   name         String
-  passwordHash String   @default("")
-  role         String   // PENAKSIR, PEMUTUS, BACK_OFFICE, ADMIN_IT
-  branch       String   @default("Kantor Pusat Ponorogo")
+  passwordHash String    @default("")
+  role         String
+  branch       String    @default("Kantor Pusat Ponorogo")
   active       Boolean   @default(true)
-  lastSeenAt   DateTime?
   createdAt    DateTime  @default(now())
-  updatedAt    DateTime @updatedAt
+  updatedAt    DateTime  @updatedAt
+  lastSeenAt   DateTime?
 }
 
 model Nasabah {
-  cif          String         @id
-  nik          String         @unique
-  nama         String
-  hp           String
-  alamat       String
-  noRek        String?
-  noKontrak    String?        // Nomor Kontrak Permanen per Nasabah (misal: 4420101123)
-  pekerjaan    String?
-  createdAt    DateTime       @default(now())
-  updatedAt    DateTime       @updatedAt
-  transaksi    TransaksiRahn[]
+  cif       String          @id
+  nik       String          @unique
+  nama      String
+  hp        String
+  alamat    String
+  noRek     String?
+  noKontrak String?
+  pekerjaan String?
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+  transaksi TransaksiRahn[]
 }
 
 model TransaksiRahn {
-  sbr                   String       @id // SBR-2026-XXXXXX atau DRAFT-XXXX
-  cif                   String?
-  nasabah               Nasabah?     @relation(fields: [cif], references: [cif])
-  nik                   String
-  nama                  String
-  hp                    String
-  alamat                String
-  noRek                 String?
-
-  totalBeratKotor       Float        @default(0.0)
-  totalBeratBersih      Float        @default(0.0)
-  totalTaksiran         Float        @default(0.0)
-
-  marhunBih             Float        @default(0.0) // Uang Pinjaman
-  ujroh                 Float        @default(0.0) // Biaya Simpan / Sewa
-  biayaAdmin            Float        @default(0.0)
-  nominalBersih         Float        @default(0.0)
-
-  tanggalAkad           String
-  tanggalJatuhTempo     String
-  keteranganGadai       String       @default("Baru") // Baru, Topup, Perpanjangan, dll.
-
-  kantor                String       @default("Kantor Pusat Ponorogo")
-  petugasPenaksir       String
-  pemutusTtd            String?
-  pemutusWaktu          String?
-  noAkad                String?
-  noSbg                 String?
-  noKontrak             String?
-  akadAsal              String?
-
-  status                String       @default("Draft") // Draft, Menunggu Pemutus, Disetujui Pemutus, Menunggu Back Office, Siap Cetak, Tercetak, Dibatalkan
-  catatan               String?
-  batalAlasan           String?
-
-  barang                MarhunItem[]
-  auditLogs             AuditLog[]
-  createdAt             DateTime     @default(now())
-  updatedAt             DateTime     @updatedAt
+  sbr               String       @id
+  cif               String?
+  nik               String
+  nama              String
+  hp                String
+  alamat            String
+  noRek             String?
+  totalBeratKotor   Float        @default(0.0)
+  totalBeratBersih  Float        @default(0.0)
+  totalTaksiran     Float        @default(0.0)
+  marhunBih         Float        @default(0.0)
+  ujroh             Float        @default(0.0)
+  biayaAdmin        Float        @default(0.0)
+  nominalBersih     Float        @default(0.0)
+  tanggalAkad       String
+  tanggalJatuhTempo String
+  keteranganGadai   String       @default("Baru")
+  kantor            String       @default("Kantor Pusat Ponorogo")
+  petugasPenaksir   String
+  pemutusTtd        String?
+  pemutusWaktu      String?
+  noAkad            String?
+  noSbg             String?
+  noKontrak         String?
+  akadAsal          String?
+  status            String       @default("Draft")
+  catatan           String?
+  batalAlasan       String?
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+  auditLogs         AuditLog[]
+  barang            MarhunItem[]
+  nasabah           Nasabah?     @relation(fields: [cif], references: [cif])
 }
 
 model MarhunItem {
   id            String        @id @default(uuid())
   sbr           String
-  transaksi     TransaksiRahn @relation(fields: [sbr], references: [sbr], onDelete: Cascade)
-  jenis         String        // Cincin emas, Kalung emas, dll.
-  karat         String        // 24K, 22K, 20K, dll.
+  jenis         String
+  karat         String
   jumlah        Int           @default(1)
   beratKotor    Float
   beratBersih   Float
   nilaiTaksiran Float
   keterangan    String?
+  transaksi     TransaksiRahn @relation(fields: [sbr], references: [sbr], onDelete: Cascade)
 }
 
 model AuditLog {
-  id         String         @id @default(uuid())
-  timestamp  DateTime       @default(now())
-  user       String
-  role       String
-  action     String
-  refId      String?
-  transaksi  TransaksiRahn? @relation(fields: [refId], references: [sbr], onDelete: SetNull)
-  notes      String
+  id        String         @id @default(uuid())
+  timestamp DateTime       @default(now())
+  user      String
+  role      String
+  action    String
+  refId     String?
+  notes     String
+  transaksi TransaksiRahn? @relation(fields: [refId], references: [sbr])
 }
 
 model SystemConfig {

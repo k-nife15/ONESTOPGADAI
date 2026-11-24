@@ -43,7 +43,7 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { nama, nik, hp, alamat, noRek, pekerjaan } = body;
+    const { nama, nik, hp, alamat, noRek } = body;
 
     if (!nama || !nik || !hp || !alamat) {
       return NextResponse.json(
@@ -86,7 +86,6 @@ export async function POST(request: Request) {
           alamat,
           noRek: noRek || null,
           noKontrak: newNoKontrak,
-          pekerjaan: pekerjaan || null,
         },
       });
 
@@ -115,7 +114,7 @@ export async function POST(request: Request) {
 export async function PUT(request: Request) {
   try {
     const body = await request.json();
-    const { cif, nama, hp, alamat, noRek, pekerjaan } = body;
+    const { cif, nama, hp, alamat, noRek } = body;
 
     if (!cif) {
       return NextResponse.json(
@@ -132,9 +131,15 @@ export async function PUT(request: Request) {
           hp,
           alamat,
           noRek: noRek || null,
-          pekerjaan: pekerjaan || null,
         },
       });
+
+      if (hp) {
+        await db.transaksiRahn.updateMany({
+          where: { cif },
+          data: { hp },
+        });
+      }
 
       await db.auditLog.create({
         data: {

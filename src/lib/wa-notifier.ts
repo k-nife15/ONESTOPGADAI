@@ -223,3 +223,154 @@ export async function notifyNasabahWa(payload: WaNotificationPayload): Promise<v
     await recordWaFailureAudit(payload.sbr, payload.hp, reason);
   }
 }
+
+export interface WaCheckResult {
+  ok: boolean;
+  registered: boolean;
+  normalized: string;
+  provider: WaProvider;
+  message: string;
+}
+
+/**
+ * Mengecek apakah nomor HP terdaftar di WhatsApp melalui provider aktif tanpa mengirim pesan.
+ */
+export async function checkWhatsAppRegistered(rawPhone: string): Promise<WaCheckResult> {
+  const normalized = normalizePhoneNumber(rawPhone);
+  const config = getProviderConfig();
+
+  if (!normalized || normalized.length < 10 || normalized.length > 15) {
+    return {
+      ok: false,
+      registered: false,
+      normalized,
+      provider: config.provider,
+      message: "Format nomor WhatsApp tidak valid (minimal 10 digit, misal 0812xxxx).",
+    };
+  }
+
+  if (config.provider === "mock") {
+    return {
+      ok: true,
+      registered: true,
+      normalized,
+      provider: "mock",
+      message: `Nomor ${normalized} terverifikasi aktif (mode simulasi lokal).`,
+    };
+  }
+
+  try {
+    const signal = AbortSignal.timeout(6000);
+    const headers: Record<string, string> = { "Content-Type": "application/json" };
+
+    if (config.provider === "fonnte") {
+      if (config.apiKey) headers.Authorization = config.apiKey;
+      const res = await fetch("https://api.fonnte.com/validate", {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ target: normalized, countryCode: "62" }),
+        signal,
+      });
+      if (!res.ok) {
+        return {
+          ok: false,
+          registered: false,
+          normalized,
+          provider: "fonnte",
+          message: `Gateway Fonnte merespons HTTP ${res.status}.`,
+        };
+      }
+      const data = await res.json().catch(() => ({}));
+      const registeredList: string[] = Array.isArray(data.registered) ? data.registered : [];
+      const isRegistered = registeredList.some((n) => normalizePhoneNumber(String(n)) === normalized);
+      return {
+        ok: true,
+        registered: isRegistered,
+        normalized,
+        provider: "fonnte",
+        message: isRegistered
+          ? `Nomor ${normalized} terdaftar di WhatsApp.`
+          : `Nomor ${normalized} tidak terdaftar di WhatsApp.`,
+      };
+    }
+
+    if (config.provider === "waha") {
+      if (config.apiKey) headers["X-Api-Key"] = config.apiKey;
+      const baseOrigin = process.env.WA_CHECK_URL || (config.apiUrl ? new URL(config.apiUrl).origin : "http://localhost:3000");
+      const checkUrl = baseOrigin.includes("check-exists")
+        ? baseOrigin
+        : `${baseOrigin.replace(/\/$/, "")}/api/contacts/check-exists?phone=${encodeURIComponent(normalized)}&session=${encodeURIComponent(config.wahaSession)}`;
+      const res = await fetch(checkUrl, { method: "GET", headers, signal });
+      if (!res.ok) {
+        return {
+          ok: false,
+          registered: false,
+          normalized,
+          provider: "waha",
+          message: `Gateway WAHA merespons HTTP ${res.status}.`,
+        };
+      }
+      const data = await res.json().catch(() => ({}));
+      const isRegistered = Boolean(data.numberExists ?? data.exists ?? data.registered);
+      return {
+        ok: true,
+        registered: isRegistered,
+        normalized,
+        provider: "waha",
+        message: isRegistered
+          ? `Nomor ${normalized} terdaftar di WhatsApp.`
+          : `Nomor ${normalized} tidak terdaftar di WhatsApp.`,
+      };
+    }
+
+    // Mode webhook (n8n)
+    const checkUrl =
+      process.env.WA_CHECK_URL ||
+      (config.apiUrl ? config.apiUrl.replace(/\/gadai-notif-wa\/?$/, "/gadai-cek-wa") : "");
+    if (!checkUrl) {
+      return {
+        ok: false,
+        registered: false,
+        normalized,
+        provider: "webhook",
+        message: "WA_CHECK_URL / WA_API_URL belum dikonfigurasi.",
+      };
+    }
+    if (config.apiKey) headers[config.webhookHeader] = config.apiKey;
+
+    const res = await fetch(checkUrl, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ phone: normalized, nomor: normalized, nomorHp: normalized }),
+      signal,
+    });
+    if (!res.ok) {
+      return {
+        ok: false,
+        registered: false,
+        normalized,
+        provider: "webhook",
+        message: `Webhook cek WA merespons HTTP ${res.status}. Pastikan workflow cek WA di n8n aktif.`,
+      };
+    }
+    const data = await res.json().catch(() => ({}));
+    const isRegistered = Boolean(data.registered ?? data.numberExists ?? data.exists ?? data.valid);
+    return {
+      ok: true,
+      registered: isRegistered,
+      normalized,
+      provider: "webhook",
+      message: isRegistered
+        ? `Nomor ${normalized} terdaftar di WhatsApp.`
+        : `Nomor ${normalized} tidak terdaftar di WhatsApp.`,
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      registered: false,
+      normalized,
+      provider: config.provider,
+      message: error instanceof Error ? error.message : "Gagal menghubungi gateway verifikasi WhatsApp.",
+    };
+  }
+}

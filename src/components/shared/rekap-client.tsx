@@ -11,11 +11,20 @@ import {
   Printer,
 } from "lucide-react";
 
+interface RekapBarangItem {
+  id: string;
+  jenis: string;
+  karat: string;
+  jumlah: number;
+  beratBersih: number;
+}
+
 interface RekapItem {
   sbr: string;
   cif: string | null;
   nama: string;
   nik: string;
+  hp: string;
   noAkad: string | null;
   noSbg: string | null;
   noKontrak: string | null;
@@ -32,23 +41,97 @@ interface RekapItem {
   petugasPenaksir: string;
   pemutusTtd: string | null;
   status: string;
+  barang?: RekapBarangItem[];
+}
+
+const EXCEL_REKAP_HEADERS = [
+  "NO",
+  "NOMOR SBR",
+  "NAMA",
+  "NOMOR AKAD",
+  "NOMOR SBG",
+  "NOMOR FASILITAS",
+  "PLAFOND",
+  "UJROH",
+  "UJROH 4 BULAN",
+  "TANGGAL DROPPING",
+  "JANGKA WAKTU",
+  "TANGGAL JATUH TEMPO",
+  "KELOLAAN",
+  "KETERANGAN",
+  "KETERANGAN BARANG",
+  "KARAT",
+  "BERAT",
+  "JUMLAH BARANG",
+  "NOMOR HP",
+  "STATUS LUNAS",
+] as const;
+
+function buildExcelRekapRow(t: RekapItem, index: number) {
+  const items = t.barang || [];
+  const keteranganBarang = items.length
+    ? items.map((b) => `${b.jenis}${b.jumlah > 1 ? ` (${b.jumlah}x)` : ""}`).join("; ")
+    : "-";
+  const karatList = items.length
+    ? Array.from(new Set(items.map((b) => b.karat))).join(", ")
+    : "-";
+  const jumlahBarang = items.reduce((sum, b) => sum + (b.jumlah || 1), 0);
+
+  return {
+    no: index + 1,
+    nomorSbr: t.sbr,
+    nama: t.nama,
+    nomorAkad: t.noAkad || "-",
+    nomorSbg: t.noSbg || "-",
+    nomorFasilitas: t.noKontrak || "-",
+    plafond: t.marhunBih || 0,
+    ujrohPerBulan: Math.round((t.ujroh || 0) / 4),
+    ujroh4Bulan: t.ujroh || 0,
+    tanggalDropping: t.tanggalAkad,
+    jangkaWaktu: "4 Bulan",
+    tanggalJatuhTempo: t.tanggalJatuhTempo,
+    kelolaan: t.kantor,
+    keterangan: t.keteranganGadai || "Baru",
+    keteranganBarang,
+    karat: karatList,
+    berat: t.totalBeratBersih || 0,
+    jumlahBarang,
+    nomorHp: t.hp || "-",
+    statusLunas: getRekapStatusLunas(t.status),
+  };
+}
+
+function getRekapStatusLunas(status: string): "Lunas" | "Belum Lunas" {
+  return status === "Lunas" ? "Lunas" : "Belum Lunas";
+}
+
+function escapeCsvCell(value: string | number): string {
+  const str = String(value ?? "");
+  if (/[",\n\r]/.test(str)) {
+    return `"${str.replace(/"/g, '""')}"`;
+  }
+  return str;
 }
 
 export function RekapClient({ transaksis }: { transaksis: RekapItem[] }) {
   const [search, setSearch] = useState("");
   const [filterKantor, setFilterKantor] = useState("ALL");
   const [filterStatus, setFilterStatus] = useState("ALL");
+  const [viewMode, setViewMode] = useState<"ringkas" | "lengkap">("ringkas");
 
   const filtered = transaksis.filter((t) => {
+    const q = search.toLowerCase();
     const matchSearch =
       search === "" ||
-      t.nama.toLowerCase().includes(search.toLowerCase()) ||
-      t.sbr.toLowerCase().includes(search.toLowerCase()) ||
-      (t.noAkad && t.noAkad.toLowerCase().includes(search.toLowerCase())) ||
-      (t.cif && t.cif.toLowerCase().includes(search.toLowerCase()));
+      t.nama.toLowerCase().includes(q) ||
+      t.sbr.toLowerCase().includes(q) ||
+      (t.noAkad && t.noAkad.toLowerCase().includes(q)) ||
+      (t.noSbg && t.noSbg.toLowerCase().includes(q)) ||
+      (t.noKontrak && t.noKontrak.toLowerCase().includes(q)) ||
+      (t.cif && t.cif.toLowerCase().includes(q));
 
     const matchKantor = filterKantor === "ALL" || t.kantor === filterKantor;
-    const matchStatus = filterStatus === "ALL" || t.status === filterStatus;
+    const matchStatus = filterStatus === "ALL" || getRekapStatusLunas(t.status) === filterStatus;
 
     return matchSearch && matchKantor && matchStatus;
   });
@@ -59,52 +142,47 @@ export function RekapClient({ transaksis }: { transaksis: RekapItem[] }) {
   const totalGram = filtered.reduce((s, t) => s + (t.totalBeratBersih || 0), 0);
 
   const handleExportCSV = () => {
-    const headers = [
-      "No SBR",
-      "No CIF",
-      "Nama Nasabah",
-      "No Akad",
-      "No SBG",
-      "No Kontrak",
-      "Tanggal Akad",
-      "Jatuh Tempo",
-      "Gram Bersih",
-      "Taksiran (Rp)",
-      "Pinjaman/Marhun Bih (Rp)",
-      "Ujroh (Rp)",
-      "Biaya Admin (Rp)",
-      "Status",
-    ];
+    const rows = filtered.map((t, idx) => {
+      const r = buildExcelRekapRow(t, idx);
+      return [
+        r.no,
+        r.nomorSbr,
+        r.nama,
+        r.nomorAkad,
+        r.nomorSbg,
+        r.nomorFasilitas,
+        r.plafond,
+        r.ujrohPerBulan,
+        r.ujroh4Bulan,
+        r.tanggalDropping,
+        r.jangkaWaktu,
+        r.tanggalJatuhTempo,
+        r.kelolaan,
+        r.keterangan,
+        r.keteranganBarang,
+        r.karat,
+        r.berat,
+        r.jumlahBarang,
+        r.nomorHp,
+        r.statusLunas,
+      ].map(escapeCsvCell);
+    });
 
-    const rows = filtered.map((t) => [
-      t.sbr,
-      t.cif || "-",
-      `"${t.nama}"`,
-      t.noAkad || "-",
-      t.noSbg || "-",
-      t.noKontrak || "-",
-      t.tanggalAkad,
-      t.tanggalJatuhTempo,
-      t.totalBeratBersih,
-      t.totalTaksiran,
-      t.marhunBih,
-      t.ujroh,
-      t.biayaAdmin,
-      t.status,
-    ]);
+    const csvText = [
+      EXCEL_REKAP_HEADERS.map(escapeCsvCell).join(","),
+      ...rows.map((row) => row.join(",")),
+    ].join("\r\n");
 
-    const csvContent =
-      "data:text/csv;charset=utf-8," +
-      [headers.join(","), ...rows.map((e) => e.join(","))].join("\n");
-
-    const encodedUri = encodeURI(csvContent);
+    const blob = new Blob(["\uFEFF" + csvText], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
     const ts = new Date().toISOString().slice(0, 10);
     const link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
-    link.setAttribute("download", `Rekap_Buku_Besar_Gadai_${ts}.csv`);
+    link.setAttribute("href", url);
+    link.setAttribute("download", `db_gadai_rekap_${ts}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+    URL.revokeObjectURL(url);
   };
 
   return (
@@ -205,87 +283,161 @@ export function RekapClient({ transaksis }: { transaksis: RekapItem[] }) {
               onChange={(e) => setFilterStatus(e.target.value)}
               className="w-full h-10 px-3 rounded-xl border border-[#E1E5E2] bg-white text-xs font-semibold text-[#1B2420] focus:outline-none focus:border-[#0B5D3B]"
             >
-              <option value="ALL">Semua Status Transaksi</option>
-              <option value="Menunggu Pemutus">Menunggu Pemutus</option>
-              <option value="Disetujui Pemutus">Disetujui Pemutus</option>
-              <option value="Menunggu Back Office">Menunggu Back Office</option>
-              <option value="Siap Cetak">Catat Nomor SBR</option>
-              <option value="Tercetak">Tercetak</option>
+              <option value="ALL">Semua Status</option>
+              <option value="Belum Lunas">Belum Lunas</option>
               <option value="Lunas">Lunas</option>
-              <option value="Lelang">Lelang</option>
-              <option value="Dibatalkan">Dibatalkan</option>
             </select>
           </div>
         </div>
 
         {/* Tabel Rekap Buku Besar */}
         <div className="bg-white rounded-2xl border border-[#E1E5E2] shadow-xs overflow-hidden">
+          <div className="px-4 py-3 border-b border-[#E1E5E2] bg-[#F6F7F5]/60 flex flex-wrap items-center justify-between gap-2">
+            <p className="text-[11px] font-semibold text-[#5F6B65]">
+              Menampilkan <b className="text-[#1B2420]">{filtered.length}</b> berkas{" "}
+              {viewMode === "lengkap" ? "· Format Lengkap 20 Kolom Excel (db gadai)" : "· Tampilan Ringkas"}
+            </p>
+            <div className="inline-flex rounded-xl border border-[#E1E5E2] bg-white p-0.5">
+              <button
+                type="button"
+                onClick={() => setViewMode("ringkas")}
+                className={`px-3 py-1.5 rounded-lg text-[11px] font-bold transition-colors cursor-pointer ${
+                  viewMode === "ringkas"
+                    ? "bg-[#0B5D3B] text-white shadow-2xs"
+                    : "text-[#5F6B65] hover:text-[#1B2420]"
+                }`}
+              >
+                Ringkas
+              </button>
+              <button
+                type="button"
+                onClick={() => setViewMode("lengkap")}
+                className={`px-3 py-1.5 rounded-lg text-[11px] font-bold transition-colors cursor-pointer ${
+                  viewMode === "lengkap"
+                    ? "bg-[#0B5D3B] text-white shadow-2xs"
+                    : "text-[#5F6B65] hover:text-[#1B2420]"
+                }`}
+              >
+                Lengkap (20 Kolom Excel)
+              </button>
+            </div>
+          </div>
+
           <div className="overflow-x-auto">
-            <table className="w-full text-xs text-left">
-              <thead className="bg-[#E6F2EC] text-[#084530] font-bold">
-                <tr>
-                  <th className="p-3">No. SBR</th>
-                  <th className="p-3">Nasabah (CIF)</th>
-                  <th className="p-3">No. Akad &amp; SBG</th>
-                  <th className="p-3">Akad &amp; Jatuh Tempo</th>
-                  <th className="p-3 text-right">Berat (g)</th>
-                  <th className="p-3 text-right">Taksiran</th>
-                  <th className="p-3 text-right">Pinjaman</th>
-                  <th className="p-3 text-right">Ujroh</th>
-                  <th className="p-3 text-center">Status</th>
-                  <th className="p-3 text-center">Aksi</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-[#E1E5E2]">
-                {filtered.map((t) => (
-                  <tr key={t.sbr} className="hover:bg-[#F6F7F5] transition-colors">
-                    <td className="p-3 font-mono font-bold text-[#084530]">{t.sbr}</td>
-                    <td className="p-3">
-                      <p className="font-bold text-[#1B2420]">{t.nama}</p>
-                      <p className="text-[11px] text-[#5F6B65]">{t.cif || "CIF-New"}</p>
-                    </td>
-                    <td className="p-3 font-mono">
-                      <p className="font-semibold text-[#1B2420]">{t.noAkad || "-"}</p>
-                      <p className="text-[11px] text-[#5F6B65]">{t.noSbg || "-"}</p>
-                    </td>
-                    <td className="p-3">
-                      <p className="text-[#1B2420]">{t.tanggalAkad}</p>
-                      <p className="text-[11px] text-[#C62828] font-bold">{t.tanggalJatuhTempo}</p>
-                    </td>
-                    <td className="p-3 text-right num font-semibold">{fmtBerat(t.totalBeratBersih)}</td>
-                    <td className="p-3 text-right num text-[#5F6B65]">{fmtRp(t.totalTaksiran)}</td>
-                    <td className="p-3 text-right num font-extrabold text-[#0B5D3B]">{fmtRp(t.marhunBih)}</td>
-                    <td className="p-3 text-right num font-semibold text-[#C9A227]">{fmtRp(t.ujroh)}</td>
-                    <td className="p-3 text-center">
-                      <span
-                        className={`inline-block px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
-                          t.status === "Disetujui Pemutus" || t.status === "Lunas"
-                            ? "bg-[#E6F2EC] text-[#084530]"
-                            : t.status === "Siap Cetak" || t.status === "Tercetak"
-                            ? "bg-[#E0F2F1] text-[#00695C]"
-                            : t.status === "Menunggu Back Office"
-                            ? "bg-[#E3F0FB] text-[#1E6FB8]"
-                            : t.status === "Dibatalkan"
-                            ? "bg-[#FDECEA] text-[#C62828]"
-                            : "bg-[#FBF3D6] text-[#7A6110]"
-                        }`}
-                      >
-                        {t.status === "Siap Cetak" ? "Catat Nomor SBR" : t.status}
-                      </span>
-                    </td>
-                    <td className="p-3 text-center">
-                      <Link
-                        href={`/cetak?sbr=${encodeURIComponent(t.sbr)}`}
-                        className="p-1.5 rounded-lg border border-[#E1E5E2] hover:bg-[#E6F2EC] text-[#0B5D3B] inline-flex items-center justify-center transition-colors"
-                        title="Buka Lembar Cetak SBR"
-                      >
-                        <Printer className="w-3.5 h-3.5" />
-                      </Link>
-                    </td>
+            {viewMode === "ringkas" ? (
+              <table className="w-full text-xs text-left">
+                <thead className="bg-[#E6F2EC] text-[#084530] font-bold">
+                  <tr>
+                    <th className="p-3">No. SBR</th>
+                    <th className="p-3">Nasabah (CIF)</th>
+                    <th className="p-3">No. Akad &amp; SBG</th>
+                    <th className="p-3">Akad &amp; Jatuh Tempo</th>
+                    <th className="p-3 text-right">Berat (g)</th>
+                    <th className="p-3 text-right">Taksiran</th>
+                    <th className="p-3 text-right">Pinjaman</th>
+                    <th className="p-3 text-right">Ujroh</th>
+                    <th className="p-3 text-center">Status</th>
+                    <th className="p-3 text-center">Aksi</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="divide-y divide-[#E1E5E2]">
+                  {filtered.map((t) => (
+                    <tr key={t.sbr} className="hover:bg-[#F6F7F5] transition-colors">
+                      <td className="p-3 font-mono font-bold text-[#084530]">{t.sbr}</td>
+                      <td className="p-3">
+                        <p className="font-bold text-[#1B2420]">{t.nama}</p>
+                        <p className="text-[11px] text-[#5F6B65]">{t.cif || "CIF-New"}</p>
+                      </td>
+                      <td className="p-3 font-mono">
+                        <p className="font-semibold text-[#1B2420]">{t.noAkad || "-"}</p>
+                        <p className="text-[11px] text-[#5F6B65]">{t.noSbg || "-"}</p>
+                      </td>
+                      <td className="p-3">
+                        <p className="text-[#1B2420]">{t.tanggalAkad}</p>
+                        <p className="text-[11px] text-[#C62828] font-bold">{t.tanggalJatuhTempo}</p>
+                      </td>
+                      <td className="p-3 text-right num font-semibold">{fmtBerat(t.totalBeratBersih)}</td>
+                      <td className="p-3 text-right num text-[#5F6B65]">{fmtRp(t.totalTaksiran)}</td>
+                      <td className="p-3 text-right num font-extrabold text-[#0B5D3B]">{fmtRp(t.marhunBih)}</td>
+                      <td className="p-3 text-right num font-semibold text-[#C9A227]">{fmtRp(t.ujroh)}</td>
+                      <td className="p-3 text-center">
+                        <span
+                          className={`inline-block px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
+                            getRekapStatusLunas(t.status) === "Lunas"
+                              ? "bg-[#E6F2EC] text-[#084530]"
+                              : "bg-[#FBF3D6] text-[#7A6110]"
+                          }`}
+                        >
+                          {getRekapStatusLunas(t.status)}
+                        </span>
+                      </td>
+                      <td className="p-3 text-center">
+                        <Link
+                          href={`/cetak?sbr=${encodeURIComponent(t.sbr)}`}
+                          className="p-1.5 rounded-lg border border-[#E1E5E2] hover:bg-[#E6F2EC] text-[#0B5D3B] inline-flex items-center justify-center transition-colors"
+                          title="Buka Lembar Cetak SBR"
+                        >
+                          <Printer className="w-3.5 h-3.5" />
+                        </Link>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            ) : (
+              <table className="w-full text-[11px] text-left whitespace-nowrap">
+                <thead className="bg-[#E6F2EC] text-[#084530] font-bold">
+                  <tr>
+                    {EXCEL_REKAP_HEADERS.map((h) => (
+                      <th key={h} className="px-3 py-2.5 border-r border-[#0B5D3B]/10 last:border-r-0">
+                        {h}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[#E1E5E2]">
+                  {filtered.map((t, idx) => {
+                    const r = buildExcelRekapRow(t, idx);
+                    return (
+                      <tr key={t.sbr} className="hover:bg-[#F6F7F5] transition-colors">
+                        <td className="px-3 py-2.5 text-center num font-semibold text-[#5F6B65]">{r.no}</td>
+                        <td className="px-3 py-2.5 font-mono font-bold text-[#084530]">{r.nomorSbr}</td>
+                        <td className="px-3 py-2.5 font-bold text-[#1B2420]">{r.nama}</td>
+                        <td className="px-3 py-2.5 font-mono text-[#1B2420]">{r.nomorAkad}</td>
+                        <td className="px-3 py-2.5 font-mono text-[#1B2420]">{r.nomorSbg}</td>
+                        <td className="px-3 py-2.5 font-mono text-[#1B2420]">{r.nomorFasilitas}</td>
+                        <td className="px-3 py-2.5 text-right num font-extrabold text-[#0B5D3B]">{fmtRp(r.plafond)}</td>
+                        <td className="px-3 py-2.5 text-right num font-semibold text-[#C9A227]">{fmtRp(r.ujrohPerBulan)}</td>
+                        <td className="px-3 py-2.5 text-right num font-semibold text-[#C9A227]">{fmtRp(r.ujroh4Bulan)}</td>
+                        <td className="px-3 py-2.5 text-[#1B2420]">{r.tanggalDropping}</td>
+                        <td className="px-3 py-2.5 text-center text-[#5F6B65]">{r.jangkaWaktu}</td>
+                        <td className="px-3 py-2.5 font-bold text-[#C62828]">{r.tanggalJatuhTempo}</td>
+                        <td className="px-3 py-2.5 text-[#1B2420]">{r.kelolaan}</td>
+                        <td className="px-3 py-2.5 uppercase font-semibold text-[#084530]">{r.keterangan}</td>
+                        <td className="px-3 py-2.5 max-w-[240px] truncate text-[#1B2420]" title={r.keteranganBarang}>
+                          {r.keteranganBarang}
+                        </td>
+                        <td className="px-3 py-2.5 font-semibold text-[#1B2420]">{r.karat}</td>
+                        <td className="px-3 py-2.5 text-right num font-semibold">{fmtBerat(r.berat)}</td>
+                        <td className="px-3 py-2.5 text-center num font-semibold">{r.jumlahBarang}</td>
+                        <td className="px-3 py-2.5 font-mono text-[#5F6B65]">{r.nomorHp}</td>
+                        <td className="px-3 py-2.5">
+                          <span
+                            className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                              r.statusLunas === "Lunas"
+                                ? "bg-[#E6F2EC] text-[#084530]"
+                                : "bg-[#FBF3D6] text-[#7A6110]"
+                            }`}
+                          >
+                            {r.statusLunas}
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            )}
           </div>
         </div>
       </div>

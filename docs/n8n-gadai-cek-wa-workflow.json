@@ -1,0 +1,190 @@
+{
+  "name": "OneStopGadai - Cek Nomor WA (WAHA)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "gadai-cek-wa",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "c3333333-3333-4333-8333-333333333301",
+      "name": "Webhook Cek Nomor WA",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -2720,
+        1008
+      ],
+      "webhookId": "gadai-cek-wa"
+    },
+    {
+      "parameters": {
+        "jsCode": "const body = $input.first().json.body || {};\n\nconst rawNomor = String(body.nomor || body.phone || body.nomorHp || '').trim();\n\n// 1. Bersihkan karakter selain angka\nlet nomorBersih = rawNomor.replace(/[^0-9]/g, '');\n\n// 2. Ubah awalan '0' menjadi '62'\nif (nomorBersih.startsWith('0')) {\n  nomorBersih = '62' + nomorBersih.slice(1);\n}\n\n// 3. Tambahkan @c.us jika nomor tidak kosong\nconst chatId = nomorBersih ? `${nomorBersih}@c.us` : '';\nconst isValid = nomorBersih.length >= 10 && nomorBersih.length <= 15;\n\nreturn [\n  {\n    json: {\n      nomor: nomorBersih,\n      chatId: chatId,\n      isValid: isValid\n    }\n  }\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -2512,
+        1008
+      ],
+      "id": "c3333333-3333-4333-8333-333333333302",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "resource": "Chatting",
+        "operation": "Start Typing",
+        "session": "=session_01m3m75agyzc09kj5kt54pwzgd",
+        "chatId": "={{ $json.chatId }}",
+        "requestOptions": {}
+      },
+      "type": "@devlikeapro/n8n-nodes-waha.WAHA",
+      "typeVersion": 202502,
+      "position": [
+        -2288,
+        1008
+      ],
+      "id": "c3333333-3333-4333-8333-333333333303",
+      "name": "Cek Nomor via WAHA",
+      "credentials": {
+        "wahaApi": {
+          "id": "DNcdazrjgJnuUh6v",
+          "name": "WAHA account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "cond-number-exists",
+              "leftValue": "={{ $json.error }}",
+              "rightValue": "true",
+              "operator": {
+                "type": "string",
+                "operation": "empty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "c3333333-3333-4333-8333-333333333304",
+      "name": "Nomor Terdaftar di WA?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        -2064,
+        1008
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"registered\": true,\n  \"nomor\": \"{{ $('Code in JavaScript').item.json.nomor }}\",\n  \"status\": \"Nomor terdaftar di WhatsApp\"\n}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "id": "c3333333-3333-4333-8333-333333333305",
+      "name": "Respond Terdaftar",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        -1808,
+        896
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"registered\": false,\n  \"nomor\": \"{{ $('Code in JavaScript').item.json.nomor }}\",\n  \"reason\": \"Nomor tidak terdaftar di WhatsApp\"\n}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "id": "c3333333-3333-4333-8333-333333333306",
+      "name": "Respond Tidak Terdaftar",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        -1808,
+        1120
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook Cek Nomor WA": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "Cek Nomor via WAHA",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Cek Nomor via WAHA": {
+      "main": [
+        [
+          {
+            "node": "Nomor Terdaftar di WA?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Nomor Terdaftar di WA?": {
+      "main": [
+        [
+          {
+            "node": "Respond Terdaftar",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond Tidak Terdaftar",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "tags": []
+}
