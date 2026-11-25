@@ -4,7 +4,7 @@ import React, { useState } from "react";
 import Link from "next/link";
 import { AppShell } from "@/components/shared/app-shell";
 import { useAuth } from "@/lib/auth-context";
-import { fmtRp } from "@/lib/formatters";
+import { fmtRp, formatNoWaLocal } from "@/lib/formatters";
 import {
   Users,
   Search,
@@ -84,15 +84,16 @@ export function NasabahClient({ initialNasabah }: { initialNasabah: NasabahWithT
   );
 
   const openEditModal = (n: NasabahWithTrx) => {
+    const cleanHp = formatNoWaLocal(n.hp);
     setIsEditMode(true);
     setFormError("");
-    setInitialHp(n.hp || "");
+    setInitialHp(cleanHp);
     setWaCheck({ status: "idle" });
     setFormData({
       cif: n.cif,
       nama: n.nama,
       nik: n.nik,
-      hp: n.hp,
+      hp: cleanHp,
       alamat: n.alamat,
       noRek: n.noRek || "",
     });
@@ -316,7 +317,7 @@ export function NasabahClient({ initialNasabah }: { initialNasabah: NasabahWithT
                         {n.nik.slice(0, 6)}••••••{n.nik.slice(-4)}
                       </td>
                       <td className="py-3.5 px-4 text-[#5F6B65] num">
-                        {n.hp}
+                        {formatNoWaLocal(n.hp)}
                       </td>
                       <td className="py-3.5 px-4 text-[#5F6B65] max-w-[160px] truncate" title={n.alamat}>
                         {n.alamat}
@@ -440,7 +441,7 @@ export function NasabahClient({ initialNasabah }: { initialNasabah: NasabahWithT
                   <Phone className="w-3.5 h-3.5 text-[#0B5D3B] shrink-0 mt-0.5" />
                   <div>
                     <span className="block text-[#1B2420] font-bold">Nomor Handphone</span>
-                    <span className="num">{selectedNasabah.hp}</span>
+                    <span className="num">{formatNoWaLocal(selectedNasabah.hp)}</span>
                   </div>
                 </div>
                 <div className="flex items-start gap-2.5 text-[#5F6B65]">
@@ -587,16 +588,17 @@ export function NasabahClient({ initialNasabah }: { initialNasabah: NasabahWithT
                   <div className="flex items-center gap-2">
                     <input
                       type="text"
+                      inputMode="numeric"
                       required
                       value={formData.hp}
                       onChange={(e) => {
-                        const nextHp = e.target.value;
+                        const nextHp = formatNoWaLocal(e.target.value);
                         setFormData({ ...formData, hp: nextHp });
-                        if (waCheck.checkedPhone !== nextHp.trim()) {
+                        if (waCheck.checkedPhone !== nextHp) {
                           setWaCheck({ status: "idle" });
                         }
                       }}
-                      placeholder="0812-3456-7890"
+                      placeholder="081234567890"
                       className="flex-1 min-w-0 h-10 px-3 rounded-xl border border-[#E1E5E2] text-xs num focus:outline-none focus:border-[#0B5D3B]"
                     />
                     <button

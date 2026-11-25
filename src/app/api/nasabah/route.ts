@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { formatNoWaLocal } from "@/lib/formatters";
 
 export async function GET(request: Request) {
   try {
@@ -44,8 +45,9 @@ export async function POST(request: Request) {
   try {
     const body = await request.json();
     const { nama, nik, hp, alamat, noRek } = body;
+    const normalizedHp = formatNoWaLocal(hp);
 
-    if (!nama || !nik || !hp || !alamat) {
+    if (!nama || !nik || !normalizedHp || !alamat) {
       return NextResponse.json(
         { success: false, error: "Nama, No. KTP (NIK), No. HP, dan Alamat wajib diisi." },
         { status: 400 }
@@ -82,7 +84,7 @@ export async function POST(request: Request) {
           cif: newCif,
           nik,
           nama,
-          hp,
+          hp: normalizedHp,
           alamat,
           noRek: noRek || null,
           noKontrak: newNoKontrak,
@@ -115,6 +117,7 @@ export async function PUT(request: Request) {
   try {
     const body = await request.json();
     const { cif, nama, hp, alamat, noRek } = body;
+    const normalizedHp = formatNoWaLocal(hp);
 
     if (!cif) {
       return NextResponse.json(
@@ -128,16 +131,16 @@ export async function PUT(request: Request) {
         where: { cif },
         data: {
           nama,
-          hp,
+          hp: normalizedHp,
           alamat,
           noRek: noRek || null,
         },
       });
 
-      if (hp) {
+      if (normalizedHp) {
         await db.transaksiRahn.updateMany({
           where: { cif },
-          data: { hp },
+          data: { hp: normalizedHp },
         });
       }
 

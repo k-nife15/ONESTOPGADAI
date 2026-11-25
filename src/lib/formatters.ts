@@ -28,6 +28,16 @@ export function parseBerat(value: string | number): number {
 }
 
 /**
+ * Menyeragamkan nomor HP/WhatsApp menjadi digit lokal tanpa tanda hubung (contoh: 081234567890)
+ */
+export function formatNoWaLocal(value: string | null | undefined): string {
+  const digits = String(value || "").replace(/\D/g, "");
+  if (!digits) return "";
+  if (digits.startsWith("62")) return `0${digits.slice(2)}`.slice(0, 15);
+  return digits.slice(0, 15);
+}
+
+/**
  * Faktor konversi kemurnian karat ke desimal
  */
 export const KARAT_FAKTOR: Record<string, number> = {
