@@ -105,6 +105,43 @@ function getRekapStatusLunas(status: string): "Lunas" | "Belum Lunas" {
   return status === "Lunas" ? "Lunas" : "Belum Lunas";
 }
 
+const BULAN_INDEX: Record<string, number> = {
+  jan: 0,
+  feb: 1,
+  mar: 2,
+  apr: 3,
+  mei: 4,
+  jun: 5,
+  jul: 6,
+  agu: 7,
+  sep: 8,
+  okt: 9,
+  nov: 10,
+  des: 11,
+};
+
+function parseIndoDateMs(tanggal: string): number {
+  const parts = String(tanggal || "").trim().split(/\s+/);
+  if (parts.length < 3) return 0;
+  const day = Number(parts[0]) || 1;
+  const month = BULAN_INDEX[parts[1].slice(0, 3).toLowerCase()] ?? 0;
+  const year = Number(parts[2]) || 2026;
+  return new Date(year, month, day).getTime();
+}
+
+function extractPeriodeBulan(tanggal: string): string {
+  const parts = String(tanggal || "").trim().split(/\s+/);
+  if (parts.length < 3) return "";
+  return `${parts[1]} ${parts[2]}`;
+}
+
+type SortOption =
+  | "TERBARU"
+  | "JATUH_TEMPO_TERDEKAT"
+  | "SBR_ASC"
+  | "PLAFOND_DESC"
+  | "NAMA_ASC";
+
 function escapeCsvCell(value: string | number): string {
   const str = String(value ?? "");
   if (/[",\n\r]/.test(str)) {
@@ -117,7 +154,13 @@ export function RekapClient({ transaksis }: { transaksis: RekapItem[] }) {
   const [search, setSearch] = useState("");
   const [filterKantor, setFilterKantor] = useState("ALL");
   const [filterStatus, setFilterStatus] = useState("ALL");
+  const [filterPeriode, setFilterPeriode] = useState("ALL");
+  const [sortBy, setSortBy] = useState<SortOption>("TERBARU");
   const [viewMode, setViewMode] = useState<"ringkas" | "lengkap">("ringkas");
+
+  const availablePeriodes = Array.from(
+    new Set(transaksis.map((t) => extractPeriodeBulan(t.tanggalAkad)).filter(Boolean))
+  ).sort((a, b) => parseIndoDateMs(`01 ${b}`) - parseIndoDateMs(`01 ${a}`));
 
   const filtered = transaksis.filter((t) => {
     const q = search.toLowerCase();
@@ -132,17 +175,35 @@ export function RekapClient({ transaksis }: { transaksis: RekapItem[] }) {
 
     const matchKantor = filterKantor === "ALL" || t.kantor === filterKantor;
     const matchStatus = filterStatus === "ALL" || getRekapStatusLunas(t.status) === filterStatus;
+    const matchPeriode =
+      filterPeriode === "ALL" || extractPeriodeBulan(t.tanggalAkad) === filterPeriode;
 
-    return matchSearch && matchKantor && matchStatus;
+    return matchSearch && matchKantor && matchStatus && matchPeriode;
   });
 
-  const totalPinjaman = filtered.reduce((s, t) => s + (t.marhunBih || 0), 0);
-  const totalTaksiran = filtered.reduce((s, t) => s + (t.totalTaksiran || 0), 0);
-  const totalUjroh = filtered.reduce((s, t) => s + (t.ujroh || 0), 0);
-  const totalGram = filtered.reduce((s, t) => s + (t.totalBeratBersih || 0), 0);
+  const sorted = [...filtered].sort((a, b) => {
+    switch (sortBy) {
+      case "JATUH_TEMPO_TERDEKAT":
+        return parseIndoDateMs(a.tanggalJatuhTempo) - parseIndoDateMs(b.tanggalJatuhTempo);
+      case "SBR_ASC":
+        return a.sbr.localeCompare(b.sbr, "id", { numeric: true });
+      case "PLAFOND_DESC":
+        return (b.marhunBih || 0) - (a.marhunBih || 0);
+      case "NAMA_ASC":
+        return a.nama.localeCompare(b.nama, "id");
+      case "TERBARU":
+      default:
+        return 0;
+    }
+  });
+
+  const totalPinjaman = sorted.reduce((s, t) => s + (t.marhunBih || 0), 0);
+  const totalTaksiran = sorted.reduce((s, t) => s + (t.totalTaksiran || 0), 0);
+  const totalUjroh = sorted.reduce((s, t) => s + (t.ujroh || 0), 0);
+  const totalGram = sorted.reduce((s, t) => s + (t.totalBeratBersih || 0), 0);
 
   const handleExportCSV = () => {
-    const rows = filtered.map((t, idx) => {
+    const rows = sorted.map((t, idx) => {
       const r = buildExcelRekapRow(t, idx);
       return [
         r.no,
@@ -250,8 +311,8 @@ export function RekapClient({ transaksis }: { transaksis: RekapItem[] }) {
         </div>
 
         {/* Filter Ribbon */}
-        <div className="bg-white p-4 rounded-2xl border border-[#E1E5E2] shadow-xs grid grid-cols-1 md:grid-cols-3 gap-3">
-          <div className="relative">
+        <div className="bg-white p-4 rounded-2xl border border-[#E1E5E2] shadow-xs grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+          <div className="relative sm:col-span-2 lg:col-span-1">
             <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-[#5F6B65]" />
             <input
               type="text"
@@ -260,6 +321,21 @@ export function RekapClient({ transaksis }: { transaksis: RekapItem[] }) {
               onChange={(e) => setSearch(e.target.value)}
               className="w-full h-10 pl-9 pr-3 rounded-xl border border-[#E1E5E2] bg-white text-xs text-[#1B2420] focus:outline-none focus:border-[#0B5D3B]"
             />
+          </div>
+
+          <div>
+            <select
+              value={filterPeriode}
+              onChange={(e) => setFilterPeriode(e.target.value)}
+              className="w-full h-10 px-3 rounded-xl border border-[#E1E5E2] bg-white text-xs font-semibold text-[#1B2420] focus:outline-none focus:border-[#0B5D3B]"
+            >
+              <option value="ALL">Semua Periode (Bulan)</option>
+              {availablePeriodes.map((periode) => (
+                <option key={periode} value={periode}>
+                  {periode}
+                </option>
+              ))}
+            </select>
           </div>
 
           <div>
@@ -286,6 +362,20 @@ export function RekapClient({ transaksis }: { transaksis: RekapItem[] }) {
               <option value="ALL">Semua Status</option>
               <option value="Belum Lunas">Belum Lunas</option>
               <option value="Lunas">Lunas</option>
+            </select>
+          </div>
+
+          <div>
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value as SortOption)}
+              className="w-full h-10 px-3 rounded-xl border border-[#E1E5E2] bg-white text-xs font-semibold text-[#1B2420] focus:outline-none focus:border-[#0B5D3B]"
+            >
+              <option value="TERBARU">Urutkan: Terbaru Input</option>
+              <option value="JATUH_TEMPO_TERDEKAT">Urutkan: Jatuh Tempo Terdekat</option>
+              <option value="SBR_ASC">Urutkan: No. SBR (Kecil → Besar)</option>
+              <option value="PLAFOND_DESC">Urutkan: Plafond Terbesar</option>
+              <option value="NAMA_ASC">Urutkan: Nama Nasabah (A → Z)</option>
             </select>
           </div>
         </div>
@@ -341,7 +431,7 @@ export function RekapClient({ transaksis }: { transaksis: RekapItem[] }) {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#E1E5E2]">
-                  {filtered.map((t) => (
+                  {sorted.map((t) => (
                     <tr key={t.sbr} className="hover:bg-[#F6F7F5] transition-colors">
                       <td className="p-3 font-mono font-bold text-[#084530]">{t.sbr}</td>
                       <td className="p-3">
@@ -396,7 +486,7 @@ export function RekapClient({ transaksis }: { transaksis: RekapItem[] }) {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#E1E5E2]">
-                  {filtered.map((t, idx) => {
+                  {sorted.map((t, idx) => {
                     const r = buildExcelRekapRow(t, idx);
                     return (
                       <tr key={t.sbr} className="hover:bg-[#F6F7F5] transition-colors">

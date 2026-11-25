@@ -89,17 +89,6 @@ export async function POST(request: Request) {
       return updatedTx;
     });
 
-    void notifyNasabahWa({
-      event: "BACKOFFICE_REGISTERED",
-      sbr: updated.sbr,
-      nama: updated.nama,
-      hp: updated.hp,
-      marhunBih: updated.marhunBih,
-      noAkad: updated.noAkad,
-      noSbg: updated.noSbg,
-      tanggalJatuhTempo: updated.tanggalJatuhTempo,
-    });
-
     return NextResponse.json({ success: true, data: updated });
   } catch (error) {
     console.error("Gagal registrasi back office:", error);

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { notifyNasabahWa } from "@/lib/wa-notifier";
 
 interface MarhunInput {
   jenis: string;
@@ -444,6 +445,19 @@ export async function PATCH(request: Request) {
         });
 
         return updatedTx;
+      });
+
+      void notifyNasabahWa({
+        event: "BACKOFFICE_REGISTERED",
+        sbr: updated.sbr,
+        nama: updated.nama,
+        hp: updated.hp,
+        marhunBih: updated.marhunBih,
+        ujroh: updated.ujroh,
+        noAkad: updated.noAkad,
+        noSbg: updated.noSbg,
+        tanggalAkad: updated.tanggalAkad,
+        tanggalJatuhTempo: updated.tanggalJatuhTempo,
       });
 
       return NextResponse.json({ success: true, data: updated });

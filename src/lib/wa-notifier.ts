@@ -4,8 +4,6 @@ import { prisma } from "@/lib/prisma";
 export type WaProvider = "mock" | "fonnte" | "waha" | "webhook";
 
 export type WaEventType =
-  | "PEMUTUS_APPROVED"
-  | "TRANSAKSI_REJECTED"
   | "BACKOFFICE_REGISTERED"
   | "TRANSAKSI_LUNAS";
 
@@ -15,10 +13,11 @@ export interface WaNotificationPayload {
   nama: string;
   hp: string;
   marhunBih?: number;
+  ujroh?: number;
   noAkad?: string | null;
   noSbg?: string | null;
+  tanggalAkad?: string | null;
   tanggalJatuhTempo?: string | null;
-  alasan?: string | null;
 }
 
 /**
@@ -36,48 +35,34 @@ export function normalizePhoneNumber(rawPhone: string): string {
  * Menyusun isi pesan WhatsApp berdasarkan event transaksi rahn.
  */
 export function buildWaMessage(payload: WaNotificationPayload): string {
-  const { event, sbr, nama, marhunBih, noAkad, noSbg, tanggalJatuhTempo, alasan } = payload;
+  const { event, sbr, nama, marhunBih, ujroh, noAkad, tanggalAkad, tanggalJatuhTempo } = payload;
 
   switch (event) {
-    case "PEMUTUS_APPROVED":
-      return [
-        `Assalamu'alaikum Wr. Wb. Bpk/Ibu *${nama}*,`,
-        ``,
-        `Pengajuan Gadai Syariah (Rahn) Anda dengan nomor berkas *${sbr}* telah *DISETUJUI* oleh Pemutus.`,
-        `Nilai Pinjaman (Marhun Bih): *${fmtRp(marhunBih)}*`,
-        ``,
-        `Silakan konfirmasi ke petugas penaksir kami untuk proses registrasi akad dan pencairan.`,
-        `Terima kasih — OneStop Gadai Syariah`,
-      ].join("\n");
-
-    case "TRANSAKSI_REJECTED":
-      return [
-        `Assalamu'alaikum Wr. Wb. Bpk/Ibu *${nama}*,`,
-        ``,
-        `Mohon maaf, pengajuan Gadai Syariah (Rahn) dengan nomor berkas *${sbr}* saat ini *DIBATALKAN / BELUM DAPAT DIPROSES*.`,
-        alasan ? `Keterangan: ${alasan}` : "",
-        ``,
-        `Silakan hubungi petugas kami untuk informasi lebih lanjut.`,
-        `Terima kasih — OneStop Gadai Syariah`,
-      ]
-        .filter(Boolean)
-        .join("\n");
-
     case "BACKOFFICE_REGISTERED":
       return [
-        `Assalamu'alaikum Wr. Wb. Bpk/Ibu *${nama}*,`,
+        `Assalamualaikum Warahmatullahi Wabarakatuh Bpk/Ibu ${nama} 🙏`,
         ``,
-        `Akad Gadai Syariah (Rahn) Anda telah *DISETUJUI* dan selesai diregistrasi:`,
-        `• No. Berkas: *${sbr}*`,
-        noAkad ? `• No. Akad: *${noAkad}*` : "",
-        noSbg ? `• No. SBG: *${noSbg}*` : "",
-        marhunBih !== undefined ? `• Marhun Bih: *${fmtRp(marhunBih)}*` : "",
-        tanggalJatuhTempo ? `• Jatuh Tempo: *${tanggalJatuhTempo}*` : "",
+        `Terima kasih banyak atas kepercayaan Bapak/Ibu telah melakukan akad gadai di Bank Mitra Syariah`,
         ``,
-        `Terima kasih atas kepercayaan Anda — OneStop Gadai Syariah`,
-      ]
-        .filter(Boolean)
-        .join("\n");
+        `1. Nama : ${nama}`,
+        `2. Nomor Dokumen/SBR : ${sbr}`,
+        `3. Plafond : ${fmtRp(marhunBih)}`,
+        `4. Ujroh : ${fmtRp(ujroh)}`,
+        `5. Jatuh Tempo : ${tanggalJatuhTempo || "-"}`,
+        `6. Hari / Tanggal Aqad : ${tanggalAkad || "-"}`,
+        ``,
+        `Jika data di atas sudah BENAR, mohon berkenan membalas chat ini dengan ketik : BENAR`,
+        ``,
+        `Semoga Allah SWT senantiasa memberikan kesehatan, keselamatan, dan keberkahan untuk Bapak/Ibu sekeluarga. Semoga rezekinya selalu dilancarkan, usahanya dimudahkan, dan segala urusannya dimudahkan oleh Allah SWT. Aamiin Ya Rabbal Alamin 🤲`,
+        ``,
+        `Terima kasih atas kepercayaannya kepada Mitra Syariah.`,
+        `Kami siap melayani Bapak/Ibu dengan amanah dan berkah.`,
+        ``,
+        `Wassalamualaikum Warahmatullahi Wabarakatuh`,
+        ``,
+        `Hormat kami,`,
+        `Bank Mitra Syariah`,
+      ].join("\n");
 
     case "TRANSAKSI_LUNAS":
       return [
